@@ -7,10 +7,12 @@ import {
   StyleSheet,
   TextInputProps,
   ViewStyle,
-  TextStyle,  // ✅ ADD
-  StyleProp,  // ✅ ADD
+  TextStyle,
+  StyleProp,
 } from 'react-native';
 import { Colors, Typography, Spacing, Radius } from '../../../theme';
+
+// ─── Auth Field ──────────────────────────────────────────────────────────────
 
 interface AuthFieldProps extends TextInputProps {
   label: string;
@@ -27,7 +29,7 @@ export const AuthField: React.FC<AuthFieldProps> = ({
   ...inputProps
 }) => {
   const [focused, setFocused] = useState(false);
-
+  const [hidden, setHidden] = useState(true);
   return (
     <View style={[styles.fieldContainer, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
@@ -39,12 +41,21 @@ export const AuthField: React.FC<AuthFieldProps> = ({
           !!error && styles.inputWrapperError,
         ]}
       >
-        <TextInput
+        {/* <TextInput
           style={styles.input}
           placeholderTextColor={Colors.textDisabled}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          importantForAutofill="no"
+          {...inputProps}
+        /> */}
+
+        <TextInput
+          style={styles.input}
+          secureTextEntry={true}
+          autoCorrect={false}
           autoCapitalize="none"
+          importantForAutofill="no"
           {...inputProps}
         />
         {rightElement}
@@ -55,7 +66,7 @@ export const AuthField: React.FC<AuthFieldProps> = ({
   );
 };
 
-// ─── Password field with show/hide toggle ───────────────────────────────────
+// ─── Password Field ──────────────────────────────────────────────────────────
 
 interface PasswordFieldProps extends Omit<AuthFieldProps, 'secureTextEntry'> {}
 
@@ -66,6 +77,9 @@ export const PasswordField: React.FC<PasswordFieldProps> = (props) => {
     <AuthField
       {...props}
       secureTextEntry={!visible}
+      autoCorrect={false}
+      autoCapitalize="none"
+      // ← remove keyboardType entirely
       rightElement={
         <TouchableOpacity
           onPress={() => setVisible((v) => !v)}
@@ -79,15 +93,14 @@ export const PasswordField: React.FC<PasswordFieldProps> = (props) => {
     />
   );
 };
-
-// ─── Primary action button ───────────────────────────────────────────────────
+// ─── Auth Button ─────────────────────────────────────────────────────────────
 
 interface AuthButtonProps {
   label: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  style?: StyleProp<ViewStyle>;      // ✅ ADD
+  style?: StyleProp<ViewStyle>;
   labelStyle?: StyleProp<TextStyle>;
 }
 
@@ -96,24 +109,24 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
   onPress,
   loading = false,
   disabled = false,
-  style,      // ✅ ADD
-  labelStyle, // ✅ ADD
+  style,
+  labelStyle,
 }) => (
   <TouchableOpacity
-    style={[styles.button, (disabled || loading) && styles.buttonDisabled, style]} // ✅ ADD style
+    style={[styles.button, (disabled || loading) && styles.buttonDisabled, style]}
     onPress={onPress}
     activeOpacity={0.85}
     disabled={disabled || loading}
     accessibilityRole="button"
     accessibilityLabel={label}
   >
-    <Text style={[styles.buttonText, labelStyle]}> {/* ✅ ADD labelStyle */}
+    <Text style={[styles.buttonText, labelStyle]}>
       {loading ? 'Please wait…' : label}
     </Text>
   </TouchableOpacity>
 );
 
-// ─── Divider with label ──────────────────────────────────────────────────────
+// ─── Divider ─────────────────────────────────────────────────────────────────
 
 export const AuthDivider: React.FC<{ label?: string }> = ({ label = 'or' }) => (
   <View style={styles.dividerRow}>
@@ -126,7 +139,6 @@ export const AuthDivider: React.FC<{ label?: string }> = ({ label = 'or' }) => (
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Field
   fieldContainer: {
     marginBottom: Spacing.base,
   },
@@ -134,7 +146,7 @@ const styles = StyleSheet.create({
     ...Typography.labelLarge,
     color: Colors.textPrimary,
     marginBottom: Spacing.xs,
-    textTransform: undefined, // override uppercase from labelLarge if needed
+    textTransform: undefined,
   },
   inputWrapper: {
     flexDirection: 'row',

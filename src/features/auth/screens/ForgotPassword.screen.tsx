@@ -1,376 +1,256 @@
-import React, { useReducer, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
-  Animated,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  StatusBar, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Typography, Spacing, Radius } from '../../../theme';
-import { AuthField, AuthButton } from '../components/AuthForm.component';
-import type { AuthScreenProps } from '../../../app/navigation/navigation.types';
-import { authService } from '../services/auth.service';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Colors, Typography } from '../../../theme';
+import { forgotPasswordApi } from '../../auth/api/auth.api';
+import type { ProfileStackParamList } from '../../../app/navigation/navigation.types';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type Props = NativeStackScreenProps<ProfileStackParamList, 'ForgotPassword'>;
 
-type Step = 'email' | 'success';
+// ─── Icons ────────────────────────────────────────────────────────────────────
+const IconArrowLeft = ({ color = '#333', size = 22 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
-interface State {
-  email: string;
-  emailError: string;
-  loading: boolean;
-  step: Step;
-}
+const IconMail = ({ color = '#AAAAAA', size = 18 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M22 6l-10 7L2 6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
-type Action =
-  | { type: 'SET_EMAIL'; value: string }
-  | { type: 'SET_ERROR'; error: string }
-  | { type: 'CLEAR_ERROR' }
-  | { type: 'SET_LOADING'; value: boolean }
-  | { type: 'SET_STEP'; step: Step };
+const IconMailBig = ({ color = Colors.primary, size = 52 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke={color} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M22 6l-10 7L2 6" stroke={color} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
-const init: State = { email: '', emailError: '', loading: false, step: 'email' };
-
-function reducer(s: State, a: Action): State {
-  switch (a.type) {
-    case 'SET_EMAIL':   return { ...s, email: a.value };
-    case 'SET_ERROR':   return { ...s, emailError: a.error };
-    case 'CLEAR_ERROR': return { ...s, emailError: '' };
-    case 'SET_LOADING': return { ...s, loading: a.value };
-    case 'SET_STEP':    return { ...s, step: a.step };
-    default:            return s;
-  }
-}
+const IconCheck = ({ color = Colors.primary, size = 22 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
+export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
+  const [email,   setEmail]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent,    setSent]    = useState(false);
 
-type Props = AuthScreenProps<'ForgotPassword'>;
-
-const ForgotPasswordScreen = ({ navigation }: Props) => {
-  const [state, dispatch] = useReducer(reducer, init);
-  const successOpacity = useRef(new Animated.Value(0)).current;
-  const successScale   = useRef(new Animated.Value(0.8)).current;
-
-  const validate = useCallback((): boolean => {
-    if (!state.email.trim()) {
-      dispatch({ type: 'SET_ERROR', error: 'Email address is required' });
-      return false;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email)) {
-      dispatch({ type: 'SET_ERROR', error: 'Enter a valid email address' });
-      return false;
-    }
-    return true;
-  }, [state.email]);
+  const isValidEmail = (val: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
 
   const handleSend = useCallback(async () => {
-    if (!validate()) return;
-
-    dispatch({ type: 'SET_LOADING', value: true });
-
-    try {
-      await authService.forgotPassword(state.email);
-
-      dispatch({ type: 'SET_STEP', step: 'success' });
-
-      Animated.parallel([
-        Animated.spring(successScale, {
-          toValue: 1,
-          tension: 60,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(successOpacity, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-    } catch (err: any) {
-      dispatch({
-        type: 'SET_ERROR',
-        error: err?.response?.data?.message || 'Something went wrong',
-      });
-    } finally {
-      dispatch({ type: 'SET_LOADING', value: false });
+    if (!email.trim()) {
+      Alert.alert('Required', 'Please enter your email address.'); return;
     }
-  }, [validate]);
+    if (!isValidEmail(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.'); return;
+    }
+    setLoading(true);
+    try {
+      await forgotPasswordApi(email.trim());
+      setSent(true);
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message || 'Failed to send reset link. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [email]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.navy} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.topBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <IconArrowLeft color={Colors.textPrimary} size={22} />
+        </TouchableOpacity>
+        <Text style={styles.topTitle}>Forgot Password</Text>
+        <View style={{ width: 36 }} />
+      </View>
 
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* ── Navy top strip ── */}
-        <View style={styles.topStrip}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation.goBack()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
+        {/* ── Sent state ── */}
+        {sent ? (
+          <View style={styles.sentWrap}>
+            <View style={styles.sentIconOuter}>
+              <View style={styles.sentIconInner}>
+                <IconMailBig />
+              </View>
+              <View style={styles.checkBadge}>
+                <IconCheck size={14} color="#FFFFFF" />
+              </View>
+            </View>
 
-          <View style={styles.iconCircle}>
-            <Text style={styles.iconEmoji}>🔑</Text>
+            <Text style={styles.sentTitle}>Email Sent!</Text>
+            <Text style={styles.sentBody}>
+              We've sent a password reset link to
+            </Text>
+            <Text style={styles.sentEmail}>{email}</Text>
+            <Text style={styles.sentHint}>
+              Check your inbox and follow the link to reset your password. It may take a minute to arrive.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.backBtnText}>Back to Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.resendBtn}
+              onPress={() => { setSent(false); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.resendText}>Didn't receive it?{' '}
+                <Text style={styles.resendLink}>Resend</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.stripTitle}>Forgot Password?</Text>
-          <Text style={styles.stripSub}>
-            {state.step === 'email'
-              ? "No worries, we'll send you reset instructions"
-              : 'Check your email for the reset link'}
-          </Text>
-        </View>
+        ) : (
 
-        {/* ── White card ── */}
-        <View style={styles.card}>
-          {state.step === 'email' ? (
+          /* ── Input state ── */
+          <View style={styles.body}>
+            <View style={styles.illustrationWrap}>
+              <View style={styles.illustrationCircle}>
+                <IconMailBig size={48} />
+              </View>
+            </View>
 
-            // ── Email input step ──
-            <>
-              <Text style={styles.cardTitle}>Reset Password</Text>
-              <Text style={styles.cardSubtitle}>
-                Enter the email address linked to your FreshMart account.
-              </Text>
+            <Text style={styles.heading}>Reset your password</Text>
+            <Text style={styles.subtitle}>
+              Enter the email address linked to your account and we'll send you a link to reset your password.
+            </Text>
 
-              <AuthField
-                label="Email Address"
-                placeholder="you@example.com"
-                value={state.email}
-                onChangeText={(v: string) => {
-                  dispatch({ type: 'SET_EMAIL', value: v });
-                  dispatch({ type: 'CLEAR_ERROR' });
-                }}
-                error={state.emailError}
+            <Text style={styles.fieldLabel}>Email Address</Text>
+            <View style={styles.inputRow}>
+              <View style={styles.inputIcon}><IconMail /></View>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email"
+                placeholderTextColor="#C0C0C0"
                 keyboardType="email-address"
-                autoComplete="email"
-                textContentType="emailAddress"
-                returnKeyType="done"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="send"
                 onSubmitEditing={handleSend}
-                autoFocus
               />
+            </View>
 
-              <View style={styles.infoBox}>
-                <Text style={styles.infoIcon}>ℹ️</Text>
-                <Text style={styles.infoText}>
-                  We'll send a secure link to this email. Link expires in 15 minutes.
-                </Text>
-              </View>
-
-              <AuthButton
-                label="Send Reset Link"
-                onPress={handleSend}
-                loading={state.loading}
-              />
-
-              <TouchableOpacity
-                style={styles.backToLogin}
-                onPress={() => navigation.navigate('Login')}
-              >
-                <Text style={styles.backToLoginText}>← Back to Sign In</Text>
-              </TouchableOpacity>
-            </>
-
-          ) : (
-
-            // ── Success step ──
-            <Animated.View
-              style={[
-                styles.successContainer,
-                { opacity: successOpacity, transform: [{ scale: successScale }] },
-              ]}
+            <TouchableOpacity
+              style={[styles.submitBtn, (!email.trim() || loading) && styles.submitBtnDisabled]}
+              onPress={handleSend}
+              disabled={!email.trim() || loading}
+              activeOpacity={0.85}
             >
-              <View style={styles.successIconWrap}>
-                <Text style={styles.successIcon}>✉️</Text>
-              </View>
-
-              <Text style={styles.successTitle}>Email Sent!</Text>
-              <Text style={styles.successBody}>
-                We've sent a password reset link to{'\n'}
-                <Text style={styles.successEmail}>{state.email}</Text>
-              </Text>
-
-              {['Check your email inbox', 'Click the reset link', 'Create a new password'].map(
-                (step, i) => (
-                  <View key={step} style={styles.stepRow}>
-                    <View style={styles.stepNum}>
-                      <Text style={styles.stepNumText}>{i + 1}</Text>
-                    </View>
-                    <Text style={styles.stepText}>{step}</Text>
-                  </View>
-                ),
-              )}
-
-              {/* ✅ alignSelf stretch fixes left/right width inside alignItems:center parent */}
-              <AuthButton
-                label="Open Email App"
-                onPress={() => {
-                  // TODO: Linking.openURL('mailto:')
-                }}
-                style={{ paddingHorizontal: 40 }}
-                labelStyle={{ fontSize: 14 }}
-              />
-
-              <TouchableOpacity
-                style={styles.resendRow}
-                onPress={() => dispatch({ type: 'SET_STEP', step: 'email' })}
-              >
-                <Text style={styles.resendText}>
-                  Didn't receive it?{' '}
-                  <Text style={styles.resendLink}>Resend email</Text>
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.backToLogin}
-                onPress={() => navigation.navigate('Login')}
-              >
-                <Text style={styles.backToLoginText}>← Back to Sign In</Text>
-              </TouchableOpacity>
-            </Animated.View>
-
-          )}
-        </View>
+              {loading
+                ? <ActivityIndicator color="#FFFFFF" />
+                : <Text style={styles.submitText}>Send Reset Link</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-export default ForgotPasswordScreen; // ✅ default export — import without curly braces
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.navy },
-  flex: { flex: 1 },
+  safe: { flex: 1, backgroundColor: '#FFFFFF' },
 
-  // Navy strip
-  topStrip: {
-    backgroundColor: Colors.navy,
-    paddingTop: 16,
-    paddingBottom: 52,
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 24,
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
   },
+  topBtn:   { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  topTitle: { ...Typography.headingMedium, color: Colors.textPrimary },
+
+  // Input state
+  body: { flex: 1, paddingHorizontal: 20, paddingTop: 32 },
+
+  illustrationWrap:   { alignItems: 'center', marginBottom: 28 },
+  illustrationCircle: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: Colors.primarySurface ?? '#EDF7ED',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  heading:    { ...Typography.headingMedium, color: Colors.textPrimary, marginBottom: 10 },
+  subtitle:   { ...Typography.bodyMedium, color: Colors.textSecondary, lineHeight: 22, marginBottom: 28 },
+  fieldLabel: { ...Typography.labelLarge, color: Colors.textPrimary, marginBottom: 8 },
+
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: 1.2, borderColor: '#EBEBEB',
+    borderRadius: 12, paddingHorizontal: 14,
+    height: 52, backgroundColor: '#FAFAFA', marginBottom: 24,
+  },
+  inputIcon: { marginRight: 10 },
+  input:     { flex: 1, ...Typography.bodyMedium, color: Colors.textPrimary, paddingVertical: 0 },
+
+  submitBtn: {
+    height: 52, borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  submitBtnDisabled: { opacity: 0.5 },
+  submitText: { ...Typography.labelLarge, color: '#FFFFFF', fontSize: 15 },
+
+  // Sent state
+  sentWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 52 },
+
+  sentIconOuter: { marginBottom: 28 },
+  sentIconInner: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: Colors.primarySurface ?? '#EDF7ED',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkBadge: {
+    position: 'absolute', bottom: 2, right: 2,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#FFFFFF',
+  },
+
+  sentTitle: { ...Typography.headingMedium, color: Colors.textPrimary, marginBottom: 10 },
+  sentBody:  { ...Typography.bodyMedium, color: Colors.textSecondary, textAlign: 'center' },
+  sentEmail: { ...Typography.labelLarge, color: Colors.textPrimary, marginTop: 4, marginBottom: 16, textAlign: 'center' },
+  sentHint:  { ...Typography.bodySmall, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 36 },
+
   backBtn: {
-    position: 'absolute',
-    top: 16,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backArrow: { color: Colors.white, fontSize: 20 },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: '100%', height: 52, borderRadius: 14,
     backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 10,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 16,
   },
-  iconEmoji: { fontSize: 36 },
-  stripTitle: { ...Typography.headingLarge, color: Colors.white },
-  stripSub: {
-    ...Typography.bodyMedium,
-    color: 'rgba(255,255,255,0.55)',
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
+  backBtnText: { ...Typography.labelLarge, color: '#FFFFFF', fontSize: 15 },
 
-  // White card
-  card: {
-    flex: 1,
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: -28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 24,
-  },
-  cardTitle: { ...Typography.headingLarge, color: Colors.textPrimary, marginBottom: 6 },
-  cardSubtitle: { ...Typography.bodyMedium, color: Colors.textSecondary, marginBottom: 28 },
-
-  // Info box
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: Colors.primarySurface,
-    borderRadius: Radius.md,
-    padding: 14,
-    marginBottom: 20,
-    gap: 10,
-    alignItems: 'flex-start',
-  },
-  infoIcon: { fontSize: 16 },
-  infoText: { ...Typography.bodySmall, color: Colors.primary, flex: 1, lineHeight: 18 },
-
-  backToLogin: { alignItems: 'center', marginTop: 20 },
-  backToLoginText: { ...Typography.bodyMedium, color: Colors.textSecondary, fontWeight: '600' },
-
-  // Success state
-  successContainer: { alignItems: 'center', paddingTop: 8 },
-  successIconWrap: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: Colors.primarySurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  successIcon: { fontSize: 44 },
-  successTitle: { ...Typography.headingLarge, color: Colors.textPrimary, marginBottom: 10 },
-  successBody: {
-    ...Typography.bodyMedium,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 22,
-  },
-  successEmail: { color: Colors.primary, fontWeight: '700' },
-
-  // Steps
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    gap: 14,
-    marginBottom: 14,
-    backgroundColor: Colors.grey100,
-    borderRadius: Radius.md,
-    padding: 14,
-  },
-  stepNum: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepNumText: { ...Typography.bodySmall, color: Colors.white, fontWeight: '700' },
-  stepText: { ...Typography.bodyMedium, color: Colors.textPrimary, flex: 1 },
-
-  resendRow: { marginTop: 16, marginBottom: 4 },
-  resendText: { ...Typography.bodyMedium, color: Colors.textSecondary, textAlign: 'center' },
-  resendLink: { color: Colors.primary, fontWeight: '700' },
+  resendBtn:  { paddingVertical: 8 },
+  resendText: { ...Typography.bodyMedium, color: Colors.textSecondary },
+  resendLink: { color: Colors.primary, fontWeight: '600' },
 });

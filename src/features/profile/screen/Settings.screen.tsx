@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography, Radius } from '../../../theme';
-import type { ProfileStackParamList } from '../../../app/navigation/navigation.types';
+import type { RootStackParamList } from '../../../app/navigation/navigation.types';
 
-type Props = NativeStackScreenProps<ProfileStackParamList, 'Settings'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 const IconMoon = ({ color = '#555', size = 20 }) => (

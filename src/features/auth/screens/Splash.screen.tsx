@@ -6,16 +6,22 @@ import {
   Animated,
   StatusBar,
   Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Colors, Typography, Spacing } from '../../../theme';
-import type { AuthStackParamList } from '../../../app/navigation/navigation.types';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
+import { Colors, Typography } from '../../../theme';
+import type { RootStackParamList } from '../../../app/navigation/navigation.types';
+import vfresh from '../../../../assets/images/vfresh.png';
+import { useProductStore } from '../../product/store/product.store';
 
-const { width, height } = Dimensions.get('window');
-type Props = NativeStackScreenProps<AuthStackParamList, 'Splash'>;
+const { width } = Dimensions.get('window');
 
-export const SplashScreen: React.FC<Props> = ({ navigation }) => {
+export const SplashScreen: React.FC = () => {
+  const navigation        = useNavigation<NavigationProp<RootStackParamList>>();
+  const hydrateGuestCart  = useProductStore(s => s.hydrateGuestCart);
+
   const logoScale   = useRef(new Animated.Value(0.5)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const ringScale   = useRef(new Animated.Value(0.3)).current;
@@ -26,64 +32,50 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     StatusBar.setBarStyle('light-content');
+    hydrateGuestCart(); // restore guest cart from AsyncStorage
 
-    // Sequence: ring expands → logo pops → text slides up → tagline fades
+    // Animation sequence (~2800ms) → always go to MainTabs
     Animated.sequence([
-      // Ring expand
       Animated.parallel([
         Animated.spring(ringScale, { toValue: 1, tension: 40, friction: 8, useNativeDriver: true }),
         Animated.timing(ringOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]),
-      // Logo pop
       Animated.parallel([
         Animated.spring(logoScale, { toValue: 1, tension: 70, friction: 6, useNativeDriver: true }),
         Animated.timing(logoOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
       ]),
-      // Text rise
       Animated.parallel([
         Animated.timing(textOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.spring(textY, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
       ]),
-      // Tagline
       Animated.timing(tagOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-    ]).start();
+    ]).start(() => {
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
+    });
 
-    const timer = setTimeout(() => {
-      navigation.replace('Login');
-    }, 2800);
-
-    return () => {
-      clearTimeout(timer);
-      StatusBar.setBarStyle('dark-content');
-    };
+    return () => { StatusBar.setBarStyle('dark-content'); };
   }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.navy} translucent />
 
-      {/* Decorative rings */}
       <Animated.View style={[styles.ringOuter, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]} />
       <Animated.View style={[styles.ringInner, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]} />
 
-      {/* Center content */}
       <View style={styles.centerContent}>
-        {/* Logo circle — matches the FAB style in the UI */}
         <Animated.View style={[styles.logoCircle, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
-          {/* Replace inner content with <Image source={require('...')} style={styles.logoImage} /> */}
-          <Text style={styles.logoEmoji}>🛒</Text>
+          <Image source={vfresh} style={styles.logoImage} />
         </Animated.View>
 
-        {/* App name */}
         <Animated.View style={{ opacity: textOpacity, transform: [{ translateY: textY }] }}>
-          <Text style={styles.appName}>FreshMart</Text>
+          <Text style={styles.appName}>Vfresh</Text>
           <Animated.Text style={[styles.tagline, { opacity: tagOpacity }]}>
             Fresh Groceries, Delivered Fast
           </Animated.Text>
         </Animated.View>
       </View>
 
-      {/* Bottom wave decoration */}
       <View style={styles.bottomDecor}>
         <View style={styles.decorDot} />
         <View style={[styles.decorDot, styles.decorDotMid]} />
@@ -126,7 +118,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.primary,
@@ -135,7 +127,6 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
   },
-  logoEmoji: { fontSize: 44 },
   logoImage: { width: 60, height: 60, resizeMode: 'contain' },
   appName: {
     ...Typography.displayMedium,

@@ -1,15 +1,24 @@
 /**
- * navigation.types.ts
- * Central param list for the product stack navigator.
- *
- * ProductList accepts an optional categoryId — no `popular` flag needed
- * because popularity is the default sort handled inside ProductList itself.
+ * navigation.types.ts  (order module)
+ * Param list for the order stack navigator.
  */
 
-export type ProductStackParamList = {
-  HomeScreen:    undefined;
-  ProductDetail: { productId: string };
-  // categoryId is optional — omit it to show all products (default: popular sort)
-  ProductList:   { categoryId?: string };
-  Cart:          undefined;
+interface SavedAddress {
+  _id?:        string;
+  label?:      'home' | 'work' | 'other';
+  fullName?:   string;
+  street:      string;
+  city:        string;
+  state?:      string;
+  postalCode?: string;
+  country?:    string;
+  isDefault?:  boolean;
+}
+
+export type OrderStackParamList = {
+  Checkout:       { selectedAddress?: SavedAddress } | undefined;
+  SelectAddress:  undefined;
+  OrderSuccess:   { orderId: string };
+  OrderHistory:   undefined;
+  OrderDetail:    { orderId: string };
 };

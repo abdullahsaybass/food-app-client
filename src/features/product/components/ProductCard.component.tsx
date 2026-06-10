@@ -7,13 +7,27 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import { Colors, Typography, Radius } from '../../../theme';
-import { useProductStore } from '../store/product.store';
-import { formatPrice, getDiscountedPrice } from '../utils/product.utils';
-import type { Product } from '../types/product.types';
+import Svg, { Path } from 'react-native-svg';
 
+import { useProductStore } from '../store/product.store';
+import {
+  formatPrice,
+  getVariantDiscountedPrice,
+  getCheapestVariant,
+} from '../utils/product.utils';
+
+import type { Product } from '../types/product.types';
+import { FontFamily, FontSize } from '../../../theme/typography';
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48 - 12) / 2;
+
+const CARD_WIDTH  = Math.floor((width - 48) / 3);
+const HCARD_WIDTH = (width - 40) / 2.45;
+
+const IconZap = ({ size = 10, color = '#FF6B35' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill={color} />
+  </Svg>
+);
 
 interface Props {
   product: Product;
@@ -23,15 +37,21 @@ interface Props {
 
 export const ProductCard: React.FC<Props> = ({ product, onPress, style }) => {
   const addToCart = useProductStore(s => s.addToCart);
-  const cartItems = useProductStore(s => s.cartItems);
-  const cartItem  = cartItems.find(i => i.product.id === product.id);
 
-  const discountedPrice = getDiscountedPrice(product.price, product.discount);
+  const displayVariant = getCheapestVariant(product) ?? product.variants[0];
 
-  const handleAdd = useCallback((e: any) => {
-    e.stopPropagation();
-    addToCart(product);
-  }, [product, addToCart]);
+  const discountedPrice = displayVariant
+    ? getVariantDiscountedPrice(displayVariant, product.discountPercentage)
+    : 0;
+
+  const handleAdd = useCallback(
+    (e: any) => {
+      e.stopPropagation();
+      if (!displayVariant) return;
+      addToCart(product, displayVariant);
+    },
+    [product, displayVariant, addToCart],
+  );
 
   return (
     <TouchableOpacity
@@ -39,48 +59,99 @@ export const ProductCard: React.FC<Props> = ({ product, onPress, style }) => {
       onPress={() => onPress(product)}
       activeOpacity={0.92}
     >
-      {product.discount ? (
+      {product.discountPercentage > 0 && (
         <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>{product.discount}% OFF</Text>
+          <Text style={styles.discountText}>-{product.discountPercentage}%</Text>
         </View>
-      ) : null}
+      )}
 
-      {/* Real product image */}
       <View style={styles.imageBox}>
         <Image
           source={{ uri: product.image }}
           style={styles.productImage}
-          resizeMode="cover"
+          resizeMode="contain"
         />
       </View>
 
       <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>{product.name}</Text>
-        <Text style={styles.desc} numberOfLines={1}>{product.description}</Text>
+        <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
 
-        <View style={styles.ratingRow}>
-          <Text style={styles.star}>★</Text>
-          <Text style={styles.rating}>{product.rating}</Text>
-          <Text style={styles.reviews}>({product.reviewCount})</Text>
+        <View style={styles.deliveryRow}>
+          <IconZap size={10} color="#FF6B35" />
+          <Text style={styles.deliveryText}>Fast Delivery</Text>
         </View>
 
-        <View style={styles.priceRow}>
-          <View>
-            <Text style={styles.price}>{formatPrice(discountedPrice)}</Text>
-            {product.discount ? (
-              <Text style={styles.originalPrice}>{formatPrice(product.price)}</Text>
-            ) : null}
-            <Text style={styles.unit}>/{product.unit}</Text>
+        <View style={styles.bottomSection}>
+          <Text style={styles.price}>{formatPrice(discountedPrice)}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+interface HProps {
+  product: Product;
+  onPress: (product: Product) => void;
+}
+
+export const ProductCardHorizontal: React.FC<HProps> = ({ product, onPress }) => {
+  const addToCart = useProductStore(s => s.addToCart);
+
+  const displayVariant = getCheapestVariant(product) ?? product.variants[0];
+
+  const discountedPrice = displayVariant
+    ? getVariantDiscountedPrice(displayVariant, product.discountPercentage)
+    : 0;
+
+  const handleAdd = useCallback(
+    (e: any) => {
+      e.stopPropagation();
+      if (!displayVariant) return;
+      addToCart(product, displayVariant);
+    },
+    [product, displayVariant, addToCart],
+  );
+
+  return (
+    <TouchableOpacity
+      style={h.card}
+      onPress={() => onPress(product)}
+      activeOpacity={0.92}
+    >
+      {product.discountPercentage > 0 && (
+        <View style={h.discountBadge}>
+          <Text style={h.discountText}>-{product.discountPercentage}%</Text>
+        </View>
+      )}
+
+      <View style={h.imageBox}>
+        <Image
+          source={{ uri: product.image }}
+          style={h.productImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={h.info}>
+        <Text style={h.name} numberOfLines={2}>{product.name}</Text>
+
+        <View style={styles.deliveryRow}>
+          <IconZap size={10} color="#FF6B35" />
+          <Text style={styles.deliveryText}>Fast Delivery</Text>
+        </View>
+
+        <View style={styles.bottomSection}>
+          <View style={h.priceInline}>
+            <Text style={h.price}>{formatPrice(discountedPrice)}</Text>
           </View>
 
           <TouchableOpacity
-            style={[styles.addBtn, cartItem && styles.addBtnActive]}
+            style={h.addBtn}
             onPress={handleAdd}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
+            disabled={!product.inStock}
           >
-            <Text style={styles.addBtnText}>
-              {cartItem ? `+${cartItem.quantity}` : '+'}
-            </Text>
+            <Text style={h.addBtnText}>+</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -88,55 +159,146 @@ export const ProductCard: React.FC<Props> = ({ product, onPress, style }) => {
   );
 };
 
+// ── Grid card styles ──────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
+
   discountBadge: {
-    position: 'absolute',
-    top: 8, left: 8, zIndex: 1,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.sm,
+    position: 'absolute', top: 6, left: 6, zIndex: 2,
+    backgroundColor: '#4CAF50',
+    borderRadius: 4,
+    paddingHorizontal: 5, paddingVertical: 2,
+  },
+  discountText:  { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
+
+  imageBox: {
+    height: 90,
+    backgroundColor: '#F8F8F8',
+    alignItems: 'center', justifyContent: 'center',
+    padding: 6,
+  },
+  productImage: { width: '100%', height: '100%' },
+
+  info: { padding: 6, gap: 2 },
+
+  name: { fontSize: 14, fontWeight: '700', color: '#1a1a1a', lineHeight: 17, fontFamily: FontFamily.bold },
+
+  deliveryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 2,
+  },
+  deliveryText:  { fontSize: 9, fontWeight: '600', color: '#FF6B35', fontFamily: FontFamily.semiBold },
+
+  bottomSection: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  priceInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
+  },
+  price:{ fontSize: 11, fontWeight: '800', color: '#1a1a1a', fontFamily: FontFamily.extraBold },
+  originalPrice: { fontSize: 9, color: '#BDBDBD', textDecorationLine: 'line-through', fontFamily: FontFamily.regular },
+
+  addBtn: {
+    width: 24, height: 24,
+    borderRadius: 6,
+    borderWidth: 1, borderColor: '#E0E0E0',
+    backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addBtnText:{ fontSize: 17, fontWeight: '400', color: '#1a1a1a', lineHeight: 22, marginTop: -1, fontFamily: FontFamily.regular },
+});
+
+// ── Horizontal card styles ────────────────────────────────────────────────────
+const h = StyleSheet.create({
+  card: {
+    width: HCARD_WIDTH,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+
+  discountBadge: {
+    position: 'absolute', top: 8, left: 8, zIndex: 2,
+    backgroundColor: '#4CAF50',
+    borderRadius: 5,
     paddingHorizontal: 6, paddingVertical: 2,
   },
-  discountText: { ...Typography.bodySmall, color: Colors.white, fontWeight: '700' },
+  discountText: { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
 
   imageBox: {
     height: 120,
-    backgroundColor: Colors.grey100,
+    backgroundColor: '#F8F8F8',
+    alignItems: 'center', justifyContent: 'center',
+    padding: 8,
   },
-  productImage: {
-    width: '100%',
-    height: '100%',
+  productImage: { width: '100%', height: '100%' },
+
+  info: { padding: 10, gap: 3 },
+
+  name: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    lineHeight: 20,
+    fontFamily: FontFamily.bold,
   },
 
-  info: { padding: 10 },
-  name: { ...Typography.titleMedium, color: Colors.textPrimary, marginBottom: 2 },
-  desc: { ...Typography.bodySmall, color: Colors.textSecondary, marginBottom: 6 },
-
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8 },
-  star:    { fontSize: 11, color: '#F59E0B' },
-  rating:  { ...Typography.bodySmall, color: Colors.textPrimary, fontWeight: '700' },
-  reviews: { ...Typography.bodySmall, color: Colors.textSecondary },
-
-  priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  price:         { ...Typography.titleMedium, color: Colors.textPrimary, fontWeight: '700' },
-  originalPrice: { ...Typography.bodySmall, color: Colors.textDisabled, textDecorationLine: 'line-through' },
-  unit:          { ...Typography.bodySmall, color: Colors.textSecondary },
+  priceInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6, flexShrink: 1,
+  },
+  price: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    fontFamily: FontFamily.extraBold,
+  },
+  originalPrice: {
+    fontSize: 10,
+    color: '#BDBDBD',
+    textDecorationLine: 'line-through',
+    fontFamily: FontFamily.regular,
+  },
 
   addBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: Colors.navy,
+    width: 30, height: 30,
+    borderRadius: 8,
+    borderWidth: 1, borderColor: '#E0E0E0',
+    backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
   },
-  addBtnActive: { backgroundColor: Colors.primary },
-  addBtnText: { color: Colors.white, fontSize: 18, fontWeight: '700', lineHeight: 22 },
+  addBtnText: {
+    fontSize: 20, fontWeight: '400',
+    color: '#1a1a1a', lineHeight: 24, marginTop: -1,
+    fontFamily: FontFamily.regular,
+  },
 });

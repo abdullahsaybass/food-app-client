@@ -1,13 +1,4 @@
-import { useAuthStore } from '../../features/auth/store/auth.store';
-import { AuthNavigator } from './AuthNavigator';
-import MainNavigator from './MainNavigator';
+import React    from 'react';
+import { AppNavigator } from './AppNavigator';
 
-export const RootNavigator = () => {
-  const { isAuthenticated, loading } = useAuthStore();
-
-  console.log("AUTH:", isAuthenticated, "LOADING:", loading);
-
-  if (loading) return null; // or Splash
-
-  return isAuthenticated ? <MainNavigator /> : <AuthNavigator />;
-};
+export const RootNavigator: React.FC = () => <AppNavigator />;

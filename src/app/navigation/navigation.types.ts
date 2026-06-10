@@ -1,39 +1,74 @@
-// src/navigation/navigation.types.ts
+/**
+ * navigation.types.ts
+ *
+ * Single source of truth for every navigable screen.
+ * All screens live in RootStackParamList → registered in AppNavigator.
+ * MainTabParamList is only for the 5 tab icons.
+ *
+ * From any screen you can navigate to any other screen with:
+ *   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+ *   navigation.navigate('Checkout');
+ *   navigation.navigate('EditProfile');
+ *   navigation.navigate('OrderDetail', { orderId });
+ */
 
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps }    from '@react-navigation/native-stack';
+import type { NavigatorScreenParams }     from '@react-navigation/native';
+import type { Address }                   from '../../types/user.types';
 
+// ─── Root Stack ───────────────────────────────────────────────────────────────
 
-export type AuthStackParamList = {
+export type RootStackParamList = {
+
+  // ── Splash ─────────────────────────────────────────────────────
   Splash: undefined;
-  Login: undefined;
-  Register: undefined;
+
+  // ── Tab shell ──────────────────────────────────────────────────
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
+
+  // ── Auth ───────────────────────────────────────────────────────
+  Login:          undefined;
+  Register:       undefined;
   ForgotPassword: undefined;
- 
+
+  // ── Products ───────────────────────────────────────────────────
+  ProductDetail:    { productId: string };
+  CategoryProducts: { categoryId: string; categoryName: string };
+  OrderHistory: undefined;
+
+  // ── Cart & Checkout flow ───────────────────────────────────────
+  // Cart is a tab — navigate to it with:
+  //   navigation.navigate('MainTabs', { screen: 'Cart' })
+  Checkout:      { selectedAddressId?: string } | undefined;
+  SelectAddress: { initialSelectedId?: string } | undefined;
+  AddAddress:    { address?: Address }           | undefined;
+  OrderSuccess:  {
+    orderId:        string;
+    cartTotal:      number;
+    cartItems?:     any[];
+    discount?:      number;
+    paymentMethod?: string;
+  };
+  OrderDetail: { orderId: string };
+
+  // ── Profile flow ───────────────────────────────────────────────
+  ProfileHome:    undefined;
+  EditProfile:    undefined;
+  Settings:       undefined;
+  ChangePassword: undefined;
+  StaticContent:  { type: 'about' | 'faq' | 'privacy' | 'terms' | 'help' };
 };
+
+// ─── Main Tabs ────────────────────────────────────────────────────────────────
 
 export type MainTabParamList = {
   Home:      undefined;
   Favourite: undefined;
-  Cart:      undefined;   // ← add this
-  Orders:    undefined;
+  Cart:      undefined;
   Account:   undefined;
 };
 
-// ─── Product Stack (inside Home tab) ─────────────────────────────────────────
-export type ProductStackParamList = {
-  HomeScreen:    undefined;
-  ProductList:   { categoryId?: string; categoryName?: string } | undefined;
-  ProductDetail: { productId: string };
-  Search:        undefined;
-  Cart:          undefined;
-};
+// ─── Screen prop helpers ──────────────────────────────────────────────────────
 
-export type ProfileStackParamList = {
-  ProfileHome: undefined;
-  EditProfile: undefined;
-  Settings:    undefined;
-};
-
-// Update MainTabParamList — Account tab now has a stack
-export type AuthScreenProps<T extends keyof AuthStackParamList> =
-  NativeStackScreenProps<AuthStackParamList, T>;
+export type RootScreenProps<T extends keyof RootStackParamList> =
+  NativeStackScreenProps<RootStackParamList, T>;

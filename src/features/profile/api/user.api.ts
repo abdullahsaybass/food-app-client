@@ -1,91 +1,128 @@
-import { API } from '../../../app/lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * user.api.ts
+ *
+ * API calls for user profile and address management ONLY.
+ *
+ * REMOVED: getOrderHistoryApi, getOrderByIdApi, cancelOrderApi, reorderApi
+ *          → moved to features/order/api/order.api.ts
+ *
+ * REMOVED: forgotPasswordApi, resetPasswordApi
+ *          → they live in features/auth/api/auth.api.ts (auth concern, not user concern)
+ *
+ * FIXED: addAddressApi used 'zip' — standardised to 'postalCode' everywhere
+ *        to match DeliveryAddress / SavedAddress types in order.types.ts.
+ */
+
+import { API }        from '../../../app/lib/api';
+import AsyncStorage   from '@react-native-async-storage/async-storage';
+
 // ─────────────────────────────────────────────
-// 👤 USER PROFILE
+// 👤 PROFILE
 // ─────────────────────────────────────────────
 
-// GET current user
 export const getProfileApi = async () => {
   const res = await API.get('/users/me');
   return res.data;
 };
 
-// UPDATE profile
 export const updateProfileApi = async (data: {
-  name?: string;
+  name?:  string;
   phone?: string;
 }) => {
   const res = await API.put('/users/me', data);
   return res.data;
 };
 
-// DELETE account
 export const deleteAccountApi = async () => {
   const res = await API.delete('/users/me');
   return res.data;
 };
-
 
 // ─────────────────────────────────────────────
 // 🖼️ PROFILE PICTURE
 // ─────────────────────────────────────────────
 
 export const updateProfilePictureApi = async (formData: FormData) => {
+  // Token manually attached because multipart/form-data bypasses
+  // the default Authorization interceptor in some RN environments.
   const token = await AsyncStorage.getItem('token');
-  
-  console.log('🔥 token:', token);
-  console.log('🔥 formData:', formData);
-
-  try {
-    const res = await API.put('/users/me/profile-pic', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`,
-      },
-      transformRequest: (data) => data,
-    });
-    console.log('✅ response:', res.data);
-    return res.data;
-  } catch (err: any) {
-    console.log('❌ status:', err?.response?.status);
-    console.log('❌ data:', err?.response?.data);
-    console.log('❌ message:', err?.message);
-    throw err;
-  }
+  const res = await API.put('/users/me/profile-pic', formData, {
+    headers: {
+      'Content-Type':  'multipart/form-data',
+      'Authorization': `Bearer ${token}`,
+    },
+    transformRequest: (data) => data,
+  });
+  return res.data;
 };
+
 export const removeProfilePictureApi = async () => {
   const res = await API.delete('/users/me/profile-pic');
   return res.data;
 };
 
-
 // ─────────────────────────────────────────────
 // 📍 ADDRESSES
 // ─────────────────────────────────────────────
 
-// ADD address
+export const getAddressesApi = async () => {
+  const res = await API.get('/users/me/addresses');
+  return res.data;
+};
+
 export const addAddressApi = async (data: {
-  street: string;
-  city: string;
-  state?: string;
-  zip?: string;
+  type:            'home' | 'work' | 'other';
+  street:          string;
+  city:            string;
+  label?:          string;
+  recipientName?:  string;
+  recipientPhone?: string;
+  state?:          string;
+  postalCode?:     string;   // ← was 'zip' — now consistent with order types
+  isDefault?:      boolean;
 }) => {
   const res = await API.post('/users/me/addresses', data);
   return res.data;
 };
 
-// UPDATE address
 export const updateAddressApi = async (
   addressId: string,
-  data: any
+  data: Partial<{
+    label:          string;
+    type:           'home' | 'work' | 'other';
+    recipientName:  string;
+    recipientPhone: string;
+    street:         string;
+    city:           string;
+    state:          string;
+    postalCode:     string;   // ← was 'zip'
+    isDefault:      boolean;
+  }>,
 ) => {
   const res = await API.put(`/users/me/addresses/${addressId}`, data);
   return res.data;
 };
 
-// DELETE address
-
 export const deleteAddressApi = async (addressId: string) => {
   const res = await API.delete(`/users/me/addresses/${addressId}`);
+  return res.data;
+};
+
+export const setDefaultAddressApi = async (addressId: string) => {
+  const res = await API.patch(`/users/me/addresses/${addressId}/default`);
+  return res.data;
+};
+
+// ─────────────────────────────────────────────
+// 🔑 PASSWORD
+// ─────────────────────────────────────────────
+// Only changePassword lives here — it's an authenticated user action.
+// forgotPassword / resetPassword are in auth.api.ts (unauthenticated flows).
+
+export const changePasswordApi = async (data: {
+  currentPassword: string;
+  newPassword:     string;
+}) => {
+  const res = await API.post('/users/change-password', data);
   return res.data;
 };

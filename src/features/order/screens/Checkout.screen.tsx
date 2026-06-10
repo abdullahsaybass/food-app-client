@@ -1,544 +1,472 @@
 /**
- * Checkout.screen.tsx — Flipkart-style address selector + new address form
- *
- * Flow:
- *  1. Shows saved addresses as radio cards (like Flipkart)
- *  2. "+ Add new address" expands an inline form
- *  3. Order summary at bottom with Place Order CTA
+ * Checkout.screen.tsx
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, StatusBar, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Animated,
+  StatusBar, ActivityIndicator, KeyboardAvoidingView, Platform, Image, TextInput,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp }           from '@react-navigation/native-stack';
+import { ArrowLeft, Check, AlertTriangle, Lock } from 'lucide-react-native';
 
-import { Colors, Typography, Radius } from '../../../theme';
-import { useProductStore } from '../../product/store/product.store';
-import { useAuthStore }    from '../../auth/store/auth.store';
-import { useOrderStore }   from '../store/order.store';
-import { formatOrderPrice } from '../utils/order.utils';
-import type { DeliveryAddress } from '../types/order.types';
-import type { OrderStackParamList } from '../navigation.types';
+import { Colors, FontFamily }      from '../../../theme';
+import { useProductStore }         from '../../product/store/product.store';
+import { useAuthStore }            from '../../auth/store/auth.store';
+import { useOrderStore }           from '../store/order.store';
+import { formatOrderPrice }        from '../utils/order.utils';
+import { RingButton }              from '../../../shared/components/Ringbutton.component';
+import type { DeliveryAddress }    from '../types/order.types';
+import type { RootStackParamList } from '../../../app/navigation/navigation.types';
 
-type Nav = NativeStackNavigationProp<OrderStackParamList, 'Checkout'>;
+type Nav           = NativeStackNavigationProp<RootStackParamList>;
+type CheckoutRoute = RouteProp<RootStackParamList, 'Checkout'>;
 
-const SHIPPING = 30;
+const PRIMARY       = '#111111';
+const PRIMARY_LIGHT = '#4CAF50';
+const PRIMARY_SURF  = '#F5F5F5';
+const PRIMARY_DARK  = '#111111';
+const NAVY          = '#1A1F2E';
 
-// ─── Saved address type (mirrors user.addresses from backend) ─────────────────
-interface SavedAddress {
-  _id?:       string;
-  label?:     'home' | 'work' | 'other';
-  fullName?:  string;
-  street:     string;
-  city:       string;
-  state?:     string;
-  postalCode?: string;
-  country?:   string;
-  isDefault?: boolean;
-}
+// ─── Radio dot ────────────────────────────────────────────────────────────────
+const RadioDot: React.FC<{ selected: boolean }> = ({ selected }) => (
+  <View style={[rd.outer, selected && rd.outerSel]}>
+    {selected ? <View style={rd.inner} /> : null}
+  </View>
+);
+const rd = StyleSheet.create({
+  outer:    { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  outerSel: { borderColor: PRIMARY },
+  inner:    { width: 11, height: 11, borderRadius: 6, backgroundColor: PRIMARY },
+});
 
-// ─── Label chip ───────────────────────────────────────────────────────────────
-const LABEL_COLORS: Record<string, { bg: string; text: string }> = {
-  home:  { bg: '#E8F5E9', text: '#2E7D32' },
-  work:  { bg: '#E3F2FD', text: '#1565C0' },
-  other: { bg: '#FFF3E0', text: '#E65100' },
-};
+// ─── Coming-Soon badge ────────────────────────────────────────────────────────
+const ComingSoon: React.FC = () => (
+  <View style={csb.wrap}><Text style={csb.text}>Coming Soon</Text></View>
+);
+const csb = StyleSheet.create({
+  wrap: { backgroundColor: '#DCFCE7', borderRadius: 4, paddingHorizontal: 7, paddingVertical: 2 },
+  text: { fontFamily: FontFamily.bold, fontSize: 10, color: PRIMARY_DARK, letterSpacing: 0.3 },
+});
 
-const LabelChip: React.FC<{ label?: string }> = ({ label }) => {
-  if (!label) return null;
-  const colors = LABEL_COLORS[label] ?? LABEL_COLORS.other;
+// ─── Order Item Row ───────────────────────────────────────────────────────────
+const ITEM_COLORS = [PRIMARY, PRIMARY_LIGHT, '#10B981', '#059669', '#047857'];
+
+const OrderItemRow: React.FC<{
+  name: string; variant: string; unitPrice: number;
+  quantity: number; colorIdx: number; imageUrl?: string;
+}> = ({ name, variant, unitPrice, quantity, colorIdx, imageUrl }) => {
+  const bg    = ITEM_COLORS[colorIdx % ITEM_COLORS.length];
+  const total = unitPrice * quantity;
   return (
-    <View style={[chipStyles.chip, { backgroundColor: colors.bg }]}>
-      <Text style={[chipStyles.text, { color: colors.text }]}>
-        {label.toUpperCase()}
-      </Text>
+    <View style={oi.row}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={oi.img} resizeMode="cover" />
+      ) : (
+        <View style={[oi.avatarWrap, { backgroundColor: bg + '20' }]}>
+          <View style={[oi.avatar, { backgroundColor: bg }]}>
+            <Text style={oi.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+          </View>
+        </View>
+      )}
+      <View style={oi.info}>
+        <Text style={oi.name} numberOfLines={1}>{name}</Text>
+        <Text style={oi.variant}>{variant}</Text>
+        <Text style={oi.unitPrice}>{formatOrderPrice(unitPrice)}</Text>
+      </View>
+      <View style={oi.right}>
+        <View style={oi.qtyBadge}><Text style={oi.qtyText}>x {quantity}</Text></View>
+        <Text style={oi.totalPrice}>{formatOrderPrice(total)}</Text>
+      </View>
     </View>
   );
 };
-
-const chipStyles = StyleSheet.create({
-  chip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
-  text: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+const oi = StyleSheet.create({
+  row:        { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
+  img:        { width: 64, height: 64, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  avatarWrap: { width: 64, height: 64, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  avatar:     { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontFamily: FontFamily.bold, fontSize: 20, color: '#fff' },
+  info:       { flex: 1, gap: 2 },
+  name:       { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.textPrimary },
+  variant:    { fontFamily: FontFamily.regular, fontSize: 12, color: Colors.textSecondary },
+  unitPrice:  { fontFamily: FontFamily.medium, fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
+  right:      { alignItems: 'flex-end', gap: 6 },
+  qtyBadge:   { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: PRIMARY_SURF, borderRadius: 5 },
+  qtyText:    { fontFamily: FontFamily.semiBold, fontSize: 12, color: PRIMARY },
+  totalPrice: { fontFamily: FontFamily.bold, fontSize: 13, color: Colors.textPrimary },
 });
 
-// ─── Address radio card ───────────────────────────────────────────────────────
-interface AddressCardProps {
-  address:    SavedAddress;
-  selected:   boolean;
-  onSelect:   () => void;
-  userName?:  string;
-  userPhone?: string;
-}
+// ─── Section Card ─────────────────────────────────────────────────────────────
+const Card: React.FC<{ children: React.ReactNode; style?: any }> = ({ children, style }) => (
+  <View style={[card.wrap, style]}>{children}</View>
+);
+const card = StyleSheet.create({
+  wrap: { backgroundColor: Colors.white, borderRadius: 12, borderWidth: 0.5, borderColor: Colors.border, overflow: 'hidden', marginBottom: 12 },
+});
 
-const AddressCard: React.FC<AddressCardProps> = ({
-  address, selected, onSelect, userName, userPhone,
-}) => {
-  const name  = address.fullName  || userName  || '';
-  const phone = userPhone || '';
-  const lines = [
-    address.street,
-    [address.city, address.state].filter(Boolean).join(', '),
-    address.postalCode,
-  ].filter(Boolean);
+// ─── Payment Option Row ───────────────────────────────────────────────────────
+type PaymentMethod = 'cod' | 'card' | 'applepay';
 
+const PayOptionRow: React.FC<{
+  method: PaymentMethod; selected: PaymentMethod;
+  onSelect: (m: PaymentMethod) => void;
+  label: string; sub: string;
+  comingSoon?: boolean; isLast?: boolean;
+}> = ({ method, selected, onSelect, label, sub, comingSoon, isLast }) => {
+  const isActive = selected === method && !comingSoon;
   return (
     <TouchableOpacity
-      style={[addrStyles.card, selected && addrStyles.cardSelected]}
-      onPress={onSelect}
-      activeOpacity={0.85}
+      style={[po.row, isActive && po.rowActive, !isLast && po.rowBorder]}
+      onPress={() => !comingSoon && onSelect(method)}
+      activeOpacity={comingSoon ? 1 : 0.85}
     >
-      {/* Radio dot */}
-      <View style={[addrStyles.radio, selected && addrStyles.radioSelected]}>
-        {selected ? <View style={addrStyles.radioDot} /> : null}
-      </View>
-
-      <View style={addrStyles.body}>
-        {/* Name + label row */}
-        <View style={addrStyles.nameRow}>
-          <Text style={addrStyles.name}>{name}</Text>
-          <LabelChip label={address.label} />
-          {address.isDefault ? (
-            <View style={addrStyles.defaultBadge}>
-              <Text style={addrStyles.defaultText}>DEFAULT</Text>
-            </View>
-          ) : null}
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[po.label, isActive && po.labelActive]}>{label}</Text>
+          {comingSoon && <ComingSoon />}
         </View>
-
-        {phone ? <Text style={addrStyles.phone}>{phone}</Text> : null}
-
-        {lines.map((line, i) => (
-          <Text key={i} style={addrStyles.line}>{line}</Text>
-        ))}
-
-        {selected ? (
-          <TouchableOpacity style={addrStyles.deliverBtn} onPress={onSelect} activeOpacity={0.8}>
-            <Text style={addrStyles.deliverBtnText}>DELIVER HERE</Text>
-          </TouchableOpacity>
-        ) : null}
+        <Text style={po.sub}>{sub}</Text>
       </View>
+      <RadioDot selected={isActive} />
     </TouchableOpacity>
   );
 };
-
-const addrStyles = StyleSheet.create({
-  card: {
-    flexDirection: 'row', padding: 16, gap: 14,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  cardSelected: {
-    backgroundColor: '#FAFFFE',
-    borderLeftWidth: 3, borderLeftColor: Colors.primary,
-  },
-  radio: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 2, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-    marginTop: 2,
-  },
-  radioSelected: { borderColor: Colors.primary },
-  radioDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.primary,
-  },
-  body:    { flex: 1, gap: 3 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  name:    { ...Typography.titleMedium, color: Colors.textPrimary, fontWeight: '700' },
-  phone:   { ...Typography.bodyMedium, color: Colors.textPrimary },
-  line:    { ...Typography.bodyMedium, color: Colors.textSecondary },
-  defaultBadge: {
-    backgroundColor: '#E8F5E9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
-  },
-  defaultText: { fontSize: 10, fontWeight: '800', color: '#2E7D32', letterSpacing: 0.6 },
-  deliverBtn: {
-    marginTop: 12, alignSelf: 'flex-start',
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 20, paddingVertical: 10,
-    borderRadius: 4,
-  },
-  deliverBtnText: { ...Typography.labelLarge, color: Colors.white, fontSize: 13, letterSpacing: 0.5 },
-});
-
-// ─── Field ────────────────────────────────────────────────────────────────────
-interface FieldProps {
-  label:         string;
-  value:         string;
-  onChange:      (v: string) => void;
-  placeholder?:  string;
-  keyboardType?: 'default' | 'phone-pad' | 'numeric';
-  required?:     boolean;
-}
-
-const Field: React.FC<FieldProps> = ({
-  label, value, onChange, placeholder, keyboardType = 'default', required,
-}) => (
-  <View style={fieldStyles.wrap}>
-    <Text style={fieldStyles.label}>
-      {label}
-      {required ? <Text style={fieldStyles.required}> *</Text> : null}
-    </Text>
-    <TextInput
-      style={fieldStyles.input}
-      value={value}
-      onChangeText={onChange}
-      placeholder={placeholder ?? label}
-      placeholderTextColor={Colors.textDisabled}
-      keyboardType={keyboardType}
-      autoCapitalize={keyboardType === 'phone-pad' ? 'none' : 'words'}
-    />
-  </View>
-);
-
-const fieldStyles = StyleSheet.create({
-  wrap:     { gap: 6 },
-  label:    {
-    ...Typography.bodySmall, color: Colors.textSecondary,
-    fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6,
-  },
-  required: { color: Colors.error },
-  input:    {
-    height: 50, borderRadius: Radius.md,
-    borderWidth: 1.5, borderColor: Colors.border,
-    paddingHorizontal: 14,
-    ...Typography.bodyMedium, color: Colors.textPrimary,
-    backgroundColor: Colors.white,
-  },
-});
-
-// ─── Section header (Flipkart step style) ─────────────────────────────────────
-const StepHeader: React.FC<{ step: number; title: string; done?: boolean }> = ({
-  step, title, done,
-}) => (
-  <View style={stepStyles.row}>
-    <View style={[stepStyles.badge, done && stepStyles.badgeDone]}>
-      {done
-        ? <Text style={stepStyles.badgeText}>✓</Text>
-        : <Text style={stepStyles.badgeText}>{step}</Text>
-      }
-    </View>
-    <Text style={stepStyles.title}>{title}</Text>
-    {done ? <Text style={stepStyles.doneText}>CHANGE</Text> : null}
-  </View>
-);
-
-const stepStyles = StyleSheet.create({
-  row:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
-  badge:     { width: 24, height: 24, borderRadius: 12, backgroundColor: '#2874F0', alignItems: 'center', justifyContent: 'center' },
-  badgeDone: { backgroundColor: '#388E3C' },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  title:     { ...Typography.titleMedium, color: Colors.textPrimary, fontWeight: '700', flex: 1 },
-  doneText:  { ...Typography.bodySmall, color: '#2874F0', fontWeight: '700' },
+const po = StyleSheet.create({
+  row:        { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  rowActive:  { backgroundColor: PRIMARY_SURF },
+  rowBorder:  { borderBottomWidth: 0.5, borderBottomColor: Colors.border },
+  label:      { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.textPrimary },
+  labelActive:{ color: PRIMARY },
+  sub:        { fontFamily: FontFamily.regular, fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export const CheckoutScreen: React.FC = () => {
-  const navigation  = useNavigation<Nav>();
-  const insets      = useSafeAreaInsets();
+  const navigation = useNavigation<Nav>();
+  const route      = useRoute<CheckoutRoute>();
+  const insets     = useSafeAreaInsets();
 
-  const cartItems   = useProductStore(s => s.cartItems);
-  const cartTotal   = useProductStore(s => s.cartTotal);
-  const clearCart   = useProductStore(s => s.clearCart);
+  const cartItems = useProductStore(s => s.cartItems);
+  const cartTotal = useProductStore(s => s.cartTotal);
+  const clearCart = useProductStore(s => s.clearCart);
 
-  const isLoggedIn  = useAuthStore(s => !!s.token);
-  const profile     = useAuthStore(s => s.user);
+  const isLoggedIn = useAuthStore(s => !!s.token);
+  const profile    = useAuthStore(s => s.user);
 
-  const placeOrder  = useOrderStore(s => s.placeOrder);
-  const isPlacing   = useOrderStore(s => s.isPlacing);
-  const placeError  = useOrderStore(s => s.placeError);
-  const clearErrors = useOrderStore(s => s.clearErrors);
+  const placeOrder        = useOrderStore(s => s.placeOrder);
+  const isPlacing         = useOrderStore(s => s.isPlacing);
+  const placeError        = useOrderStore(s => s.placeError);
+  const clearErrors       = useOrderStore(s => s.clearErrors);
+  const pendingAddress    = useOrderStore(s => s.pendingAddress);
+  const setPendingAddress = useOrderStore(s => s.setPendingAddress);
+  const applyCoupon       = useOrderStore(s => s.applyCoupon);
+  const removeCoupon      = useOrderStore(s => s.removeCoupon);
+  const couponCode        = useOrderStore(s => s.couponCode);
+  const couponDiscount    = useOrderStore(s => s.couponDiscount);
+  const couponError       = useOrderStore(s => s.couponError);
+  const isApplyingCoupon  = useOrderStore(s => s.isApplyingCoupon);
 
-  const total = cartTotal + SHIPPING;
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  const [promoInput, setPromoInput]       = useState('');
 
-  // ── Saved addresses from profile ───────────────────────────────────────────
-  const savedAddresses: SavedAddress[] = (profile?.addresses ?? []) as SavedAddress[];
+  const savedAddresses  = (profile as any)?.addresses ?? [];
+  const defaultAddress  = savedAddresses.find((a: any) => a.isDefault) ?? savedAddresses[0] ?? null;
+  const selectedAddress = pendingAddress ?? route.params?.selectedAddressId ?? defaultAddress;
 
-  // Find default address index
-  const defaultIdx = savedAddresses.findIndex(a => a.isDefault) >= 0
-    ? savedAddresses.findIndex(a => a.isDefault)
-    : savedAddresses.length > 0 ? 0 : -1;
-
-  const [selectedIdx, setSelectedIdx] = useState<number>(defaultIdx);
-  const [showNewForm, setShowNewForm]  = useState(savedAddresses.length === 0);
-
-  // New address form state
-  const [fullName,   setFullName]   = useState('');
-  const [phone,      setPhone]      = useState('');
-  const [street,     setStreet]     = useState('');
-  const [city,       setCity]       = useState('');
-  const [stateName,  setStateName]  = useState('');
-  const [postalCode, setPostalCode] = useState('');
-
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  // Animate the new address form
-  const formAnim = useRef(new Animated.Value(showNewForm ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(formAnim, {
-      toValue: showNewForm ? 1 : 0,
-      duration: 220,
-      useNativeDriver: false,
-    }).start();
-  }, [showNewForm]);
-
-  // Prefill new form with profile name/phone as defaults
-  useEffect(() => {
-    if (!profile) return;
-    setFullName(profile.name  ?? '');
-    setPhone(profile.phone    ?? '');
-  }, [profile]);
+  const subtotal = cartTotal;
+  const discount = couponDiscount;
+  const total    = Math.max(0, subtotal - discount);
 
   useEffect(() => () => { clearErrors(); }, []);
 
-  // ── Validate ───────────────────────────────────────────────────────────────
-  const validate = (): boolean => {
-    if (selectedIdx === -1 && !showNewForm) {
-      setValidationError('Please select a delivery address.'); return false;
-    }
-    if (showNewForm && selectedIdx === -1) {
-      if (!fullName.trim())  { setValidationError('Full name is required.'); return false; }
-      if (!phone.trim())     { setValidationError('Phone number is required.'); return false; }
-      if (!street.trim())    { setValidationError('Street address is required.'); return false; }
-      if (!city.trim())      { setValidationError('City is required.'); return false; }
-    }
-    return true;
-  };
+  const goToSelectAddress = () => navigation.navigate('SelectAddress');
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
-    setValidationError(null);
-    if (!validate()) return;
+    if (!selectedAddress) { goToSelectAddress(); return; }
+    await handleConfirmAndPlace();
+  };
 
-    let deliveryAddress: DeliveryAddress;
+  const handleConfirmAndPlace = async () => {
+    if (!selectedAddress) return;
 
-    if (selectedIdx >= 0 && !showNewForm) {
-      // Use saved address
-      const saved = savedAddresses[selectedIdx];
-      deliveryAddress = {
-        fullName:   saved.fullName  || profile?.name  || '',
-        phone:      profile?.phone  || '',
-        street:     saved.street,
-        city:       saved.city,
-        state:      saved.state,
-        postalCode: saved.postalCode,
-      };
-    } else {
-      // Use new form values
-      deliveryAddress = {
-        fullName:   fullName.trim(),
-        phone:      phone.trim(),
-        street:     street.trim(),
-        city:       city.trim(),
-        state:      stateName.trim() || undefined,
-        postalCode: postalCode.trim() || undefined,
-      };
+    const items = cartItems.map(({ product, selectedVariant, quantity }) => ({
+      product: product.id, unit: selectedVariant.unit, quantity,
+    }));
+
+    const shippingAddress: DeliveryAddress = {
+      fullName:   selectedAddress.fullName   || selectedAddress.recipientName  || profile?.name  || '',
+      phone:      selectedAddress.phone      || selectedAddress.recipientPhone || profile?.phone || '',
+      street:     selectedAddress.street,
+      city:       selectedAddress.city,
+      state:      selectedAddress.state      || '',
+      postalCode: selectedAddress.postalCode || selectedAddress.zip            || '',
+      label:      selectedAddress.label,
+    };
+
+    if (!shippingAddress.postalCode.trim()) {
+      navigation.navigate('AddAddress', { address: selectedAddress });
+      return;
     }
 
-    const order = await placeOrder({
-      deliveryAddress,
-      items: cartItems.map(({ product, quantity }) => ({
-        product:  product.id,
-        name:     product.name,
-        quantity,
-        price:    product.price,
-      })),
-    });
+    const order = await placeOrder({ items, shippingAddress });
+
     if (order) {
+      setPendingAddress(null);
+      const cartTotalSnapshot = cartTotal;
       await clearCart();
-      navigation.replace('OrderSuccess', { orderId: order.id });
+      navigation.replace('OrderSuccess', {
+        orderId:       order.id,
+        cartTotal:     cartTotalSnapshot,
+        discount:      couponDiscount,
+        paymentMethod: paymentMethod === 'cod' ? 'Cash on Delivery' : paymentMethod,
+      });
     }
   };
 
-  const displayError = validationError ?? placeError;
-
-  // ── Guest wall ─────────────────────────────────────────────────────────────
+  // ── Guest wall ──────────────────────────────────────────────────────────────
   if (!isLoggedIn) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backIcon}>‹</Text>
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+            <ArrowLeft size={20} color={Colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={s.headerCenter}>
+            <Text style={s.headerTitle}>Checkout</Text>
+          </View>
           <View style={{ width: 36 }} />
         </View>
-        <View style={styles.guestWall}>
-          <Text style={styles.guestEmoji}>🔐</Text>
-          <Text style={styles.guestTitle}>Sign in to continue</Text>
-          <Text style={styles.guestSubtitle}>
-            {'Create an account or log in to place your order.\nYour cart is saved.'}
+        <View style={s.guestWall}>
+          <View style={s.guestIconWrap}>
+            <Lock size={34} color={PRIMARY} strokeWidth={1.8} />
+          </View>
+          <Text style={s.guestTitle}>Sign in to continue</Text>
+          <Text style={s.guestSub}>
+            Create an account or log in to place your order.{'\n'}Your cart is saved.
           </Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => (navigation as any).navigate('Login')}>
-            <Text style={styles.primaryBtnText}>Sign In</Text>
+          <TouchableOpacity style={s.ctaBtn} onPress={() => navigation.navigate('Login')}>
+            <Text style={s.ctaBtnText}>Sign In</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.outlineBtn} onPress={() => (navigation as any).navigate('Register')}>
-            <Text style={styles.outlineBtnText}>Create Account</Text>
+          <TouchableOpacity style={s.outlineBtn} onPress={() => navigation.navigate('Register')}>
+            <Text style={s.outlineBtnText}>Create Account</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── Checkout ───────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+          <ArrowLeft size={20} color={Colors.textPrimary} strokeWidth={2} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Checkout</Text>
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>Checkout</Text>
+          <Text style={s.headerSub}>Step 1 of 2</Text>
+        </View>
         <View style={{ width: 36 }} />
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+          style={s.scroll}
+          contentContainerStyle={s.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Error banner */}
-          {displayError ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>{`⚠️  ${displayError}`}</Text>
+          {placeError ? (
+            <View style={s.errorBanner}>
+              <AlertTriangle size={13} color="#166534" strokeWidth={2} style={{ marginRight: 6 }} />
+              <Text style={s.errorText}>{placeError}</Text>
             </View>
           ) : null}
 
-          {/* ── STEP 1: LOGIN (done) ── */}
-          <View style={styles.stepBlock}>
-            <View style={styles.stepDoneRow}>
-              <View style={[stepStyles.badge, stepStyles.badgeDone]}>
-                <Text style={stepStyles.badgeText}>✓</Text>
-              </View>
-              <Text style={styles.stepDoneTitle}>LOGIN</Text>
-              <View style={styles.stepDoneInfo}>
-                <Text style={styles.stepDoneName}>{profile?.name ?? ''}</Text>
-                <Text style={styles.stepDonePhone}>{profile?.phone ?? ''}</Text>
-              </View>
+          {/* ── 1. Delivery Address ── */}
+          <Card>
+            <View style={s.cardHeader}>
+              <Text style={s.cardTitle}>Delivery Address</Text>
+              <TouchableOpacity onPress={goToSelectAddress} style={s.editBtn}>
+                <Text style={s.editBtnText}>Edit ✎</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+            <TouchableOpacity style={s.addrBody} onPress={goToSelectAddress} activeOpacity={0.85}>
+              {selectedAddress ? (
+                <>
+                  <Text style={s.addrName}>
+                    {selectedAddress.fullName || selectedAddress.recipientName || profile?.name || 'Your Name'}
+                  </Text>
+                  <Text style={s.addrLine} numberOfLines={2}>
+                    {[selectedAddress.street, selectedAddress.city, selectedAddress.state,
+                      selectedAddress.postalCode].filter(Boolean).join(', ')}
+                  </Text>
+                  {(selectedAddress.phone || selectedAddress.recipientPhone || profile?.phone) && (
+                    <Text style={s.addrLine}>
+                      {selectedAddress.phone || selectedAddress.recipientPhone || profile?.phone}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <View style={{ gap: 4 }}>
+                  <Text style={[s.addrName, { color: PRIMARY }]}>+ Select delivery address</Text>
+                  <Text style={s.addrLine}>Tap to choose or add an address</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </Card>
 
-          {/* ── STEP 2: DELIVERY ADDRESS ── */}
-          <View style={styles.stepBlock}>
-            <View style={styles.stepActiveHeader}>
-              <View style={[stepStyles.badge, { backgroundColor: '#2874F0' }]}>
-                <Text style={stepStyles.badgeText}>2</Text>
-              </View>
-              <Text style={styles.stepActiveTitle}>DELIVERY ADDRESS</Text>
+          {/* ── 2. Order Items ── */}
+          <Card>
+            <View style={s.cardHeader}>
+              <Text style={s.cardTitle}>Order Items ({cartItems.length})</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('MainTabs', { screen: 'Cart' })}>
+                <Text style={s.editBtnText}>Edit Cart</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Saved addresses */}
-            {savedAddresses.map((addr, idx) => (
-              <AddressCard
-                key={addr._id ?? idx}
-                address={addr}
-                selected={selectedIdx === idx && !showNewForm}
-                onSelect={() => { setSelectedIdx(idx); setShowNewForm(false); }}
-                userName={profile?.name}
-                userPhone={profile?.phone}
+            {cartItems.map(({ product, selectedVariant, quantity }, idx) => (
+              <OrderItemRow
+                key={`${product.id}::${selectedVariant.unit}`}
+                name={product.name}
+                variant={selectedVariant.unit}
+                unitPrice={selectedVariant.price}
+                quantity={quantity}
+                colorIdx={idx}
+                imageUrl={(product as any).imageUrl ?? (product as any).image}
               />
             ))}
+          </Card>
 
-            {/* Add new address row */}
-            <TouchableOpacity
-              style={[
-                styles.addNewRow,
-                showNewForm && selectedIdx === -1 && styles.addNewRowActive,
-              ]}
-              onPress={() => {
-                setShowNewForm(true);
-                setSelectedIdx(-1);
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={[
-                addrStyles.radio,
-                (showNewForm && selectedIdx === -1) && addrStyles.radioSelected,
-              ]}>
-                {showNewForm && selectedIdx === -1
-                  ? <View style={addrStyles.radioDot} />
-                  : null
-                }
+          {/* ── 3. Promo Code ── */}
+          <Card>
+            <View style={s.cardHeader}>
+              <Text style={s.cardTitle}>Promo Code</Text>
+              {couponCode ? (
+                <TouchableOpacity onPress={() => { removeCoupon(); setPromoInput(''); }}>
+                  <Text style={s.editBtnText}>Remove</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {couponCode ? (
+              <View style={s.couponApplied}>
+                <Check size={16} color={PRIMARY} strokeWidth={2.5} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.couponAppliedCode}>{couponCode}</Text>
+                  <Text style={s.couponAppliedSub}>You save {formatOrderPrice(couponDiscount)}!</Text>
+                </View>
               </View>
-              <Text style={styles.addNewText}>+ Add a new address</Text>
-            </TouchableOpacity>
+            ) : (
+              <View style={s.couponInputRow}>
+                <TextInput
+                  style={s.couponInput}
+                  placeholder="Enter promo code"
+                  placeholderTextColor={Colors.textSecondary}
+                  value={promoInput}
+                  onChangeText={t => setPromoInput(t.toUpperCase())}
+                  autoCapitalize="characters"
+                  returnKeyType="done"
+                  onSubmitEditing={() => { if (promoInput.trim()) applyCoupon(promoInput.trim(), subtotal); }}
+                />
+                <TouchableOpacity
+                  style={[s.couponApplyBtn, (!promoInput.trim() || isApplyingCoupon) && s.couponApplyBtnDisabled]}
+                  onPress={() => { if (promoInput.trim()) applyCoupon(promoInput.trim(), subtotal); }}
+                  disabled={!promoInput.trim() || isApplyingCoupon}
+                >
+                  {isApplyingCoupon
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={s.couponApplyBtnText}>Apply</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            )}
 
-            {/* Collapsible new address form */}
-            {showNewForm && selectedIdx === -1 ? (
-              <View style={styles.newFormWrap}>
-                <Field label="Full Name"   value={fullName}   onChange={setFullName}   placeholder="John Doe"         required />
-                <Field label="Phone"       value={phone}      onChange={setPhone}       placeholder="+91 9999999999"   keyboardType="phone-pad" required />
-                <Field label="Street"      value={street}     onChange={setStreet}      placeholder="House No., Street" required />
-                <Field label="City"        value={city}       onChange={setCity}        placeholder="Chennai"           required />
-                <Field label="State"       value={stateName}  onChange={setStateName}   placeholder="Tamil Nadu" />
-                <Field label="Postal Code" value={postalCode} onChange={setPostalCode}  placeholder="600001"            keyboardType="numeric" />
+            {couponError ? (
+              <View style={s.couponErrorRow}>
+                <AlertTriangle size={12} color="#B91C1C" strokeWidth={2} />
+                <Text style={s.couponErrorText}>{couponError}</Text>
               </View>
             ) : null}
-          </View>
+          </Card>
 
-          {/* ── STEP 3: ORDER SUMMARY ── */}
-          <View style={styles.stepBlock}>
-            <View style={styles.stepActiveHeader}>
-              <View style={[stepStyles.badge, { backgroundColor: Colors.textDisabled }]}>
-                <Text style={stepStyles.badgeText}>3</Text>
-              </View>
-              <Text style={[styles.stepActiveTitle, { color: Colors.textSecondary }]}>ORDER SUMMARY</Text>
+          {/* ── 4. Payment Method ── */}
+          <Card>
+            <View style={[s.cardHeader, { borderBottomWidth: 0.5, borderBottomColor: Colors.border }]}>
+              <Text style={s.cardTitle}>Payment Method</Text>
             </View>
-
-            <View style={styles.summaryBlock}>
-              {cartItems.map(({ product, quantity }) => (
-                <View key={product.id} style={styles.summaryRow}>
-                  <Text style={styles.summaryName} numberOfLines={2}>
-                    {`${product.name} × ${quantity}`}
-                  </Text>
-                  <Text style={styles.summaryPrice}>
-                    {formatOrderPrice(product.price * quantity)}
-                  </Text>
-                </View>
-              ))}
-
-              <View style={styles.divider} />
-
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>{formatOrderPrice(cartTotal)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Shipping Fee</Text>
-                <Text style={styles.summaryValue}>{formatOrderPrice(SHIPPING)}</Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.summaryRow}>
-                <Text style={styles.totalLabel}>Total Amount</Text>
-                <Text style={styles.totalValue}>{formatOrderPrice(total)}</Text>
-              </View>
+            <PayOptionRow
+              method="cod" selected={paymentMethod} onSelect={setPaymentMethod}
+              label="Cash on Delivery" sub="Pay when you receive your order"
+            />
+            <PayOptionRow
+              method="card" selected={paymentMethod} onSelect={setPaymentMethod}
+              label="Credit / Debit Card" sub="Visa, Mastercard, AMEX"
+              comingSoon
+            />
+            <PayOptionRow
+              method="applepay" selected={paymentMethod} onSelect={setPaymentMethod}
+              label="Apple Pay" sub="Quick, secure payment"
+              comingSoon isLast
+            />
+            <View style={s.securityBadge}>
+              <Text style={s.securityText}>🔒  Your payment information is secure and encrypted</Text>
             </View>
-          </View>
+          </Card>
+
+          {/* ── 5. Order Summary ── */}
+          <Card style={{ padding: 16 }}>
+            <Text style={[s.cardTitle, { marginBottom: 12 }]}>Order Summary</Text>
+            <View style={s.priceRow}>
+              <Text style={s.priceLabel}>Subtotal ({cartItems.length} items)</Text>
+              <Text style={s.priceValue}>{formatOrderPrice(subtotal)}</Text>
+            </View>
+            <View style={s.priceRow}>
+              <Text style={s.priceLabel}>Delivery Fee</Text>
+              <Text style={s.freeText}>FREE</Text>
+            </View>
+            {couponDiscount > 0 && (
+              <View style={s.priceRow}>
+                <Text style={s.priceLabel}>Promo ({couponCode})</Text>
+                <Text style={s.discountValue}>−{formatOrderPrice(couponDiscount)}</Text>
+              </View>
+            )}
+            <View style={s.priceDivider} />
+            <View style={s.priceRow}>
+              <Text style={s.totalLabel}>Total Amount</Text>
+              <Text style={s.totalValue}>{formatOrderPrice(total)}</Text>
+            </View>
+          </Card>
+
         </ScrollView>
 
-        {/* Sticky footer */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <TouchableOpacity
-            style={[styles.placeBtn, isPlacing && { opacity: 0.6 }]}
-            onPress={handlePlaceOrder}
-            disabled={isPlacing}
-            activeOpacity={0.88}
-          >
-            {isPlacing
-              ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.placeBtnText}>{`Place Order — ${formatOrderPrice(total)}`}</Text>
-            }
-          </TouchableOpacity>
+        {/* ── Sticky Footer ── */}
+        <View style={[s.footer, { paddingBottom: insets.bottom + 10 }]}>
+          <View style={s.footerInner}>
+            <View style={s.secureWrap}>
+              <View>
+                <Text style={s.secureTitle}>Secure Checkout</Text>
+                <Text style={s.secureSub}>100% secure payment</Text>
+              </View>
+            </View>
+            <RingButton
+              label={`Place Order  •  ${formatOrderPrice(total)}`}
+              variant="solid"
+              color={PRIMARY}
+              onComplete={handlePlaceOrder}
+              style={s.placeBtn}
+              textStyle={s.placeBtnText}
+            />
+          </View>
+          <Text style={s.termsNote}>
+            By placing this order you agree to our{' '}
+            <Text style={{ color: PRIMARY_LIGHT }}>Terms &amp; Conditions</Text>
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -546,113 +474,67 @@ export const CheckoutScreen: React.FC = () => {
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  safe:          { flex: 1, backgroundColor: Colors.background },
+  scroll:        { flex: 1 },
+  scrollContent: { padding: 14, paddingBottom: 16 },
 
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: '#F1F3F6' },
-  scroll: { flex: 1 },
+  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Colors.white, borderBottomWidth: 0.5, borderBottomColor: Colors.border },
+  backBtn:      { width: 36, height: 36, borderRadius: 18, borderWidth: 0.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  headerCenter: { alignItems: 'center', gap: 1 },
+  headerTitle:  { fontFamily: FontFamily.bold, fontSize: 16, color: Colors.textPrimary },
+  headerSub:    { fontFamily: FontFamily.regular, fontSize: 11, color: Colors.textSecondary },
 
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  backBtn:     { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backIcon:    { fontSize: 30, color: Colors.textPrimary, lineHeight: 34 },
-  headerTitle: { ...Typography.headingMedium, color: Colors.textPrimary },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: PRIMARY_SURF, padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: Colors.borderFocus, marginBottom: 12 },
+  errorText:   { fontFamily: FontFamily.regular, fontSize: 12, color: PRIMARY_DARK, flex: 1 },
 
-  errorBanner: {
-    backgroundColor: '#FFF3CD', paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#FFEEBA',
-  },
-  errorText: { ...Typography.bodySmall, color: '#856404' },
+  cardHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
+  cardTitle:      { fontFamily: FontFamily.bold, fontSize: 14, color: Colors.textPrimary },
+  editBtn:        { padding: 4 },
+  editBtnText:    { fontFamily: FontFamily.semiBold, fontSize: 13, color: PRIMARY },
 
-  // Step blocks
-  stepBlock: {
-    backgroundColor: Colors.white, marginTop: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
-  },
-  stepDoneRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 0,
-  },
-  stepDoneTitle: {
-    ...Typography.bodySmall, color: Colors.textSecondary,
-    fontWeight: '700', letterSpacing: 0.5, marginRight: 4,
-  },
-  stepDoneInfo:  { flex: 1, flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  stepDoneName:  { ...Typography.bodyMedium, color: Colors.textPrimary, fontWeight: '600' },
-  stepDonePhone: { ...Typography.bodyMedium, color: Colors.textSecondary },
+  addrBody: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 0 },
+  addrName: { fontFamily: FontFamily.bold, fontSize: 14, color: Colors.textPrimary, marginBottom: 3 },
+  addrLine: { fontFamily: FontFamily.regular, fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
 
-  stepActiveHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: '#2874F0',
-  },
-  stepActiveTitle: {
-    ...Typography.titleMedium, color: Colors.white,
-    fontWeight: '800', letterSpacing: 0.5,
-  },
+  couponInputRow:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
+  couponInput:            { flex: 1, height: 44, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, paddingHorizontal: 12, fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.textPrimary, backgroundColor: '#FAFAFA', letterSpacing: 1 },
+  couponApplyBtn:         { height: 44, paddingHorizontal: 18, backgroundColor: '#2E7D32', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  couponApplyBtnDisabled: { opacity: 0.5 },
+  couponApplyBtnText:     { fontFamily: FontFamily.bold, fontSize: 14, color: '#fff' },
+  couponApplied:          { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 14, marginBottom: 14, padding: 12, backgroundColor: PRIMARY_SURF, borderRadius: 8, borderWidth: 0.5, borderColor: PRIMARY + '40' },
+  couponAppliedCode:      { fontFamily: FontFamily.bold, fontSize: 13, color: PRIMARY },
+  couponAppliedSub:       { fontFamily: FontFamily.regular, fontSize: 12, color: PRIMARY_DARK, marginTop: 1 },
+  couponErrorRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 14, marginBottom: 12, padding: 10, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 0.5, borderColor: '#FECACA' },
+  couponErrorText:        { fontFamily: FontFamily.regular, fontSize: 12, color: '#B91C1C', flex: 1 },
 
-  // Add new address
-  addNewRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 16, paddingVertical: 16,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  addNewRowActive: { backgroundColor: '#FAFFFE' },
-  addNewText: { ...Typography.titleMedium, color: '#2874F0', fontWeight: '700' },
+  securityBadge: { margin: 12, marginTop: 0, padding: 10, borderRadius: 8, backgroundColor: PRIMARY_SURF, borderWidth: 0.5, borderColor: Colors.borderFocus + '60' },
+  securityText:  { fontFamily: FontFamily.regular, fontSize: 11, color: PRIMARY_DARK },
 
-  // New form
-  newFormWrap: {
-    padding: 16, gap: 14, backgroundColor: '#FAFFFE',
-    borderTopWidth: 1, borderTopColor: Colors.border,
-  },
+  priceRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  priceLabel:    { fontFamily: FontFamily.regular, fontSize: 13, color: Colors.textSecondary },
+  priceValue:    { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.textPrimary },
+  freeText:      { fontFamily: FontFamily.bold, fontSize: 13, color: PRIMARY },
+  discountValue: { fontFamily: FontFamily.bold, fontSize: 13, color: '#16A34A' },
+  priceDivider:  { height: 0.5, backgroundColor: Colors.border, marginVertical: 10 },
+  totalLabel:    { fontFamily: FontFamily.bold, fontSize: 15, color: Colors.textPrimary },
+  totalValue:    { fontFamily: FontFamily.extraBold, fontSize: 22, color: PRIMARY },
 
-  // Order summary
-  summaryBlock: { padding: 16, gap: 12 },
-  summaryRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
-  summaryName:  { ...Typography.bodyMedium, color: Colors.textPrimary, flex: 1 },
-  summaryPrice: { ...Typography.bodyMedium, color: Colors.textPrimary, fontWeight: '600' },
-  summaryLabel: { ...Typography.bodyMedium, color: Colors.textSecondary },
-  summaryValue: { ...Typography.bodyMedium, color: Colors.textPrimary, fontWeight: '600' },
-  totalLabel:   { ...Typography.titleLarge, color: Colors.textPrimary, fontWeight: '700' },
-  totalValue:   { ...Typography.titleLarge, color: '#2874F0', fontWeight: '800', fontSize: 18 },
-  divider:      { height: 1, backgroundColor: Colors.border },
+  footer:      { backgroundColor: NAVY, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: Colors.border },
+  footerInner: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  secureWrap:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  secureTitle: { fontFamily: FontFamily.semiBold, fontSize: 13, color: '#ECFDF5' },
+  secureSub:   { fontFamily: FontFamily.regular, fontSize: 11, color: Colors.textSecondary },
+  placeBtn:    { backgroundColor: '#2E7D32', borderRadius: 8, paddingVertical: 13, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  placeBtnText:{ fontFamily: FontFamily.bold, fontSize: 14, color: '#fff' },
+  termsNote:   { fontFamily: FontFamily.regular, textAlign: 'center', fontSize: 11, color: Colors.textSecondary, marginBottom: 2 },
 
-  // Footer
-  footer: {
-    backgroundColor: Colors.white, paddingHorizontal: 20, paddingTop: 14,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  placeBtn: {
-    height: 54, borderRadius: Radius.full, backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  placeBtnText: { ...Typography.labelLarge, color: Colors.white, fontSize: 16 },
-
-  // Guest wall
-  guestWall: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 32, gap: 14,
-  },
-  guestEmoji:    { fontSize: 72 },
-  guestTitle:    { ...Typography.headingMedium, color: Colors.textPrimary, textAlign: 'center' },
-  guestSubtitle: { ...Typography.bodyMedium, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  primaryBtn: {
-    width: '100%', height: 52, borderRadius: Radius.full,
-    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
-    marginTop: 8,
-  },
-  primaryBtnText: { ...Typography.labelLarge, color: Colors.white },
-  outlineBtn: {
-    width: '100%', height: 52, borderRadius: Radius.full,
-    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: Colors.primary,
-  },
-  outlineBtnText: { ...Typography.labelLarge, color: Colors.primary },
+  guestWall:     { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 14 },
+  guestIconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: PRIMARY_SURF, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  guestTitle:    { fontFamily: FontFamily.bold, fontSize: 20, color: Colors.textPrimary, textAlign: 'center' },
+  guestSub:      { fontFamily: FontFamily.regular, fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  ctaBtn:        { width: '100%', backgroundColor: PRIMARY, borderRadius: 8, paddingVertical: 15, alignItems: 'center', marginTop: 8 },
+  ctaBtnText:    { fontFamily: FontFamily.semiBold, fontSize: 15, color: '#fff' },
+  outlineBtn:    { width: '100%', borderRadius: 8, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: PRIMARY },
+  outlineBtnText:{ fontFamily: FontFamily.semiBold, fontSize: 15, color: PRIMARY },
 });

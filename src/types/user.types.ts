@@ -1,23 +1,36 @@
-export type Address = {
-  label?: 'home' | 'work' | 'other';  // ← add this
-  street?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;                 // ✅ already added
-};
-export type User = {
-  _id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
+/**
+ * src/types/user.types.ts
+ */
+export interface Address {
+  _id?:            string;
+  label?:          'home' | 'work' | 'other'; // ✅ narrow the type
+  type?:           'home' | 'work' | 'other';
+  fullName?:       string;
+  recipientName?:  string;
+  phone?:          string;
+  recipientPhone?: string;
+  street:          string;
+  city:            string;
+  state?:          string;
+  postalCode?:     string;
+  zip?:            string;
+  country?:        string;
+  isDefault?:      boolean;
+}
+export interface User {
+  _id:    string;
+  name:   string;
+  email:  string;
+  phone?: string;
+  role:   string;
 
-  addresses?: Address[]; // ✅ ADD THIS
+  addresses?: Address[];
+
   profilePic?: {
-    url: string | null;
-    publicId: string | null;
+    url?:      string;
+    publicId?: string;
   };
 
-  isActive?: boolean;
+  isActive?:        boolean;
   isEmailVerified?: boolean;
-};
+}

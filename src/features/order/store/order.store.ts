@@ -1,52 +1,47 @@
 /**
  * order.store.ts
- * Zustand store — all order mutations hit the real backend.
- * Mirrors the same patterns used in product.store.ts.
  */
 
 import { create } from 'zustand';
 import { orderService, type OrderHistoryParams } from '../services/order.service';
-import type { Order, OrderListResult, PlaceOrderPayload } from '../types/order.types';
-
-// ─── Store shape ──────────────────────────────────────────────────────────────
+import { couponApi } from '../services/Coupon.api';
+import type { Order, OrderListResult, PlaceOrderPayload, SavedAddress } from '../types/order.types';
 
 interface OrderStore {
   // ── State ──────────────────────────────────────────────────────────────────
-  orders:     Order[];
-  pagination: OrderListResult['pagination'] | null;
-  activeOrder: Order | null;       // detail view / just-placed order
+  orders:        Order[];
+  pagination:    OrderListResult['pagination'] | null;
+  activeOrder:   Order | null;
 
-  isPlacing:  boolean;             // POST /orders in-flight
-  isFetching: boolean;             // GET /orders in-flight
-  isFetchingOne: boolean;          // GET /orders/:id in-flight
-  isCancelling: boolean;           // PATCH /orders/:id/cancel in-flight
+  isPlacing:     boolean;
+  isFetching:    boolean;
+  isFetchingOne: boolean;
+  isCancelling:  boolean;
 
   placeError:  string | null;
   fetchError:  string | null;
   cancelError: string | null;
 
+  /** Coupon */
+  couponCode:    string | null;
+  couponDiscount: number;          // absolute ₹/$ amount off
+  couponError:   string | null;
+  isApplyingCoupon: boolean;
+
+  /** Address chosen in SelectAddressScreen — passed back to CheckoutScreen */
+  pendingAddress: SavedAddress | null;
+
   // ── Actions ────────────────────────────────────────────────────────────────
-
-  /** POST /api/orders — place a new order. Returns the created Order. */
-  placeOrder: (payload: PlaceOrderPayload) => Promise<Order | null>;
-
-  /** GET /api/orders — load (or refresh) order history. */
+  applyCoupon:  (code: string, cartTotal: number) => Promise<void>;
+  removeCoupon: () => void;
+  placeOrder:        (payload: PlaceOrderPayload) => Promise<Order | null>;
   fetchOrderHistory: (params?: OrderHistoryParams) => Promise<void>;
-
-  /** GET /api/orders/:id — load a single order into activeOrder. */
-  fetchOrderById: (orderId: string) => Promise<void>;
-
-  /** PATCH /api/orders/:id/cancel — cancel an order and refresh it in state. */
-  cancelOrder: (orderId: string) => Promise<boolean>;
-
-  /** Clear activeOrder (e.g. on screen unmount). */
-  clearActiveOrder: () => void;
-
-  /** Reset all errors. */
-  clearErrors: () => void;
+  fetchOrderById:    (orderId: string) => Promise<void>;
+  cancelOrder:       (orderId: string) => Promise<boolean>;
+  clearActiveOrder:  () => void;
+  clearErrors:       () => void;
+  setPendingAddress: (address: SavedAddress | null) => void;
 }
-
-// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useOrderStore = create<OrderStore>((set, get) => ({
   orders:        [],
@@ -62,12 +57,38 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
   fetchError:  null,
   cancelError: null,
 
+  couponCode:       null,
+  couponDiscount:   0,
+  couponError:      null,
+  isApplyingCoupon: false,
+
+  pendingAddress: null,
+
+  // ── applyCoupon ────────────────────────────────────────────────────────────
+  applyCoupon: async (code, cartTotal) => {
+    set({ isApplyingCoupon: true, couponError: null });
+    try {
+      const result = await couponApi.apply(code, cartTotal);
+      set({
+        isApplyingCoupon: false,
+        couponCode:       code.toUpperCase(),
+        couponDiscount:   result.discount,
+        couponError:      null,
+      });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? err.message ?? 'Invalid coupon code.';
+      set({ isApplyingCoupon: false, couponError: msg, couponCode: null, couponDiscount: 0 });
+    }
+  },
+
+  // ── removeCoupon ───────────────────────────────────────────────────────────
+  removeCoupon: () => set({ couponCode: null, couponDiscount: 0, couponError: null }),
+
   // ── placeOrder ─────────────────────────────────────────────────────────────
   placeOrder: async (payload) => {
     set({ isPlacing: true, placeError: null });
     try {
       const order = await orderService.placeOrder(payload);
-      // Prepend to local list so history is immediately up-to-date
       set(s => ({
         isPlacing:   false,
         activeOrder: order,
@@ -89,7 +110,6 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       set(s => ({
         isFetching: false,
         pagination:  result.pagination,
-        // Replace list on first page, append on subsequent pages (infinite scroll)
         orders: isFirstPage ? result.orders : [...s.orders, ...result.orders],
       }));
     } catch (err: any) {
@@ -115,9 +135,7 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       const updated = await orderService.cancelOrder(orderId);
       set(s => ({
         isCancelling: false,
-        // Update in list
-        orders: s.orders.map(o => o.id === orderId ? updated : o),
-        // Update detail view if open
+        orders:      s.orders.map(o => o.id === orderId ? updated : o),
         activeOrder: s.activeOrder?.id === orderId ? updated : s.activeOrder,
       }));
       return true;
@@ -131,5 +149,8 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
   clearActiveOrder: () => set({ activeOrder: null }),
 
   // ── clearErrors ────────────────────────────────────────────────────────────
-  clearErrors: () => set({ placeError: null, fetchError: null, cancelError: null }),
+  clearErrors: () => set({ placeError: null, fetchError: null, cancelError: null, couponError: null }),
+
+  // ── setPendingAddress ──────────────────────────────────────────────────────
+  setPendingAddress: (address) => set({ pendingAddress: address }),
 }));
