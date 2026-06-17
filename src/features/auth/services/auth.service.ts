@@ -7,8 +7,8 @@ export const authService = {
 
     console.log("LOGIN RAW:", res);
 
-    const user = res.user || res.data?.user;
-    const token = res.accessToken || res.data?.accessToken;
+    const user  = res.data.user;
+    const token = res.data.accessToken;
 
     return { token, user };
   },

@@ -2,81 +2,42 @@
  * MainNavigator.tsx
  */
 
-import React, { type ComponentType } from 'react';
+import React, { useRef, useState, useCallback, type ComponentType } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, type NavigationProp }      from '@react-navigation/native';
-import { createBottomTabNavigator }                from '@react-navigation/bottom-tabs';
-import Svg, { Path, Circle }                       from 'react-native-svg';
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
+import Svg, { Path, Circle } from 'react-native-svg';
 
-import { Colors, Typography }         from '../../theme';
-import { HomeScreen }                 from '../../features/product/screens/Home.screen';
-import { CategoriesScreen }          from '../../features/product/screens/Categories.screen';
-import { CartScreen }                 from '../../features/product/screens/Cart.screen';
-import { OrderHistoryScreen }         from '../../features/order/screens/OrderHistory.screen';
-import { ProfileScreen }              from '../../features/profile/screen/Profile.screen';
-import { useProductStore }            from '../../features/product/store/product.store';
-import { useAuthStore }               from '../../features/auth/store/auth.store';
-import type { MainTabParamList, RootStackParamList } from './navigation.types';
+import { Colors, Typography }   from '../../theme';
+import { HomeScreen }           from '../../features/product/screens/Home.screen';
+import { CategoriesScreen }     from '../../features/product/screens/Categories.screen';
+import { CartScreen }           from '../../features/product/screens/Cart.screen';
+import { ProfileScreen }        from '../../features/profile/screen/Profile.screen';
+import { useProductStore }      from '../../features/product/store/product.store';
+import { useAuthStore }         from '../../features/auth/store/auth.store';
+import type { RootStackParamList } from './navigation.types';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Global tab switcher ──────────────────────────────────────────────────────
+let _switchTab: ((name: string) => void) | null = null;
+export const switchMainTab = (name: string) => _switchTab?.(name);
 
-const TAB_H  = Platform.OS === 'ios' ? 80 : 64;
-const PB_IOS = Platform.OS === 'ios' ? 24 : 8;
-
-// ─── Login Prompt ─────────────────────────────────────────────────────────────
-
-const LoginPromptScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-
-  return (
-    <View style={promptStyles.container}>
-      <Text style={promptStyles.emoji}>🔒</Text>
-      <Text style={promptStyles.title}>Sign in to continue</Text>
-      <Text style={promptStyles.subtitle}>
-        Log in or create an account to access this feature.
-      </Text>
-      <TouchableOpacity
-        style={promptStyles.primary}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('Login')}
-      >
-        <Text style={promptStyles.primaryText}>Log In</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={promptStyles.secondary}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('Register')}
-      >
-        <Text style={promptStyles.secondaryText}>Create Account</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-// ─── Placeholder ──────────────────────────────────────────────────────────────
-
-const PlaceholderScreen = ({ title }: { title: string }) => (
-  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
-    <Text style={{ ...Typography.headingMedium, color: Colors.textPrimary }}>{title}</Text>
-    <Text style={{ ...Typography.bodyMedium,   color: Colors.textSecondary, marginTop: 6 }}>Coming soon</Text>
-  </View>
-);
+const { width: SCREEN_W } = Dimensions.get('window');
+const TAB_H = Platform.OS === 'ios' ? 80 : 64;
 
 // ─── Tab icons ────────────────────────────────────────────────────────────────
 
 const IconHome = ({ color }: { color: string }) => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 12L5 10M5 10L12 3L19 10M5 10V20C5 20.5523 5.44772 21 6 21H9M19 10L21 12M19 10V20C19 20.5523 18.5523 21 18 21H15M9 21C9 21 9 15 12 15C15 15 15 21 15 21M9 21H15"
-      stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
-    />
+    <Path d="M3 12L5 10M5 10L12 3L19 10M5 10V20C5 20.5523 5.44772 21 6 21H9M19 10L21 12M19 10V20C19 20.5523 18.5523 21 18 21H15M9 21C9 21 9 15 12 15C15 15 15 21 15 21M9 21H15"
+      stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -89,19 +50,11 @@ const IconCategories = ({ color }: { color: string }) => (
   </Svg>
 );
 
-const IconOrder = ({ color }: { color: string }) => (
-  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-    <Path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M12 3C10.8954 3 10 3.89543 10 5C10 6.10457 10.8954 7 12 7C13.1046 7 14 6.10457 14 5C14 3.89543 13.1046 3 12 3Z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M9 12H15M9 16H13" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
-  </Svg>
-);
-
 const IconCart = ({ color }: { color: string }) => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Path d="M6 2L3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6L18 2H6Z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M3 6H21" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M16 10C16 12.2091 14.2091 14 12 14C9.79086 14 8 12.2091 8 10"  stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M16 10C16 12.2091 14.2091 14 12 14C9.79086 14 8 12.2091 8 10" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -113,76 +66,152 @@ const IconUser = ({ color }: { color: string }) => (
 );
 
 const TABS = [
-  { name: 'Home'      as const, label: 'Home',       Icon: IconHome },
+  { name: 'Home'      as const, label: 'Home',       Icon: IconHome       },
   { name: 'Favourite' as const, label: 'Categories', Icon: IconCategories },
-  { name: 'Cart'      as const, label: 'Cart',       Icon: IconCart },
-  { name: 'Account'   as const, label: 'Profile',    Icon: IconUser },
+  { name: 'Cart'      as const, label: 'Cart',       Icon: IconCart       },
+  { name: 'Account'   as const, label: 'Profile',    Icon: IconUser       },
 ];
 
-// ─── Custom Tab Bar ───────────────────────────────────────────────────────────
+// ─── Animated Tab Item ────────────────────────────────────────────────────────
 
-const CustomTabBar = ({ state, navigation }: any) => {
-  const cartCount = useProductStore(s => s.cartCount);
-  const insets    = useSafeAreaInsets();
+const TabItem: React.FC<{
+  tab: typeof TABS[number];
+  focused: boolean;
+  cartCount: number;
+  onPress: () => void;
+}> = ({ tab, focused, cartCount, onPress }) => {
+  const scaleAnim   = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(focused ? 1 : 0.6)).current;
 
-  const handlePress = (tabName: string) => {
-    setTimeout(() => navigation.navigate(tabName));
-  };
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: focused ? 1.12 : 1,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 20,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: focused ? 1 : 0.6,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [focused]);
+
+  const color  = focused ? Colors.primary : '#9CA3AF';
+  const isCart = tab.name === 'Cart';
 
   return (
-    <View style={[tabStyles.bar, { paddingBottom: insets.bottom + 8 }]}>
-      {TABS.map((tab, index) => {
-        const focused = state.index === index;
-        const color   = focused ? Colors.primary : '#9CA3AF';
-        const isCart  = tab.name === 'Cart';
+    <TouchableOpacity style={tabStyles.tab} onPress={onPress} activeOpacity={0.7}>
+      <View style={[tabStyles.indicator, focused && tabStyles.indicatorActive]} />
+      <Animated.View style={[tabStyles.iconWrap, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
+        <tab.Icon color={color} />
+        {isCart && cartCount > 0 && (
+          <View style={tabStyles.badge}>
+            <Text style={tabStyles.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+          </View>
+        )}
+      </Animated.View>
+      <Animated.Text style={[tabStyles.label, focused && tabStyles.labelActive, { opacity: opacityAnim }]}>
+        {tab.label}
+      </Animated.Text>
+    </TouchableOpacity>
+  );
+};
 
-        return (
-          <TouchableOpacity
-            key={tab.name}
-            style={tabStyles.tab}
-            onPress={() => handlePress(tab.name)}
-            activeOpacity={0.7}
-          >
-            <View style={[tabStyles.indicator, focused && tabStyles.indicatorActive]} />
+// ─── Sliding Tab Container ────────────────────────────────────────────────────
 
-            <View style={tabStyles.iconWrap}>
-              <tab.Icon color={color} />
-              {isCart && cartCount > 0 && (
-                <View style={tabStyles.badge}>
-                  <Text style={tabStyles.badgeText}>
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </Text>
-                </View>
-              )}
-            </View>
+const SlidingTabContainer: React.FC<{
+  activeIndex: number;
+  screens: React.ReactNode[];
+}> = ({ activeIndex, screens }) => {
+  const translateX = useRef(new Animated.Value(-activeIndex * SCREEN_W)).current;
+  const prevIndex  = useRef(activeIndex);
 
-            <Text style={[tabStyles.label, focused && tabStyles.labelActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+  React.useEffect(() => {
+    if (prevIndex.current === activeIndex) return;
+    prevIndex.current = activeIndex;
+
+    Animated.spring(translateX, {
+      toValue:         -activeIndex * SCREEN_W,
+      useNativeDriver: true,
+      tension:         80,
+      friction:        14,
+      overshootClamping: true,
+    }).start();
+  }, [activeIndex]);
+
+  return (
+    <View style={{ flex: 1, overflow: 'hidden' }}>
+      <Animated.View
+        style={{
+          flex:      1,
+          flexDirection: 'row',
+          width:     SCREEN_W * screens.length,
+          transform: [{ translateX }],
+        }}
+      >
+        {screens.map((screen, i) => (
+          <View key={i} style={{ width: SCREEN_W, flex: 1 }}>
+            {screen}
+          </View>
+        ))}
+      </Animated.View>
     </View>
   );
 };
 
-// ─── Tab Navigator ────────────────────────────────────────────────────────────
-
-const Tab = createBottomTabNavigator<MainTabParamList>();
+// ─── Main Navigator ───────────────────────────────────────────────────────────
 
 const MainNavigator: React.FC = () => {
-  const isLoggedIn = useAuthStore(s => !!s.token);
+  const cartCount = useProductStore(s => s.cartCount);
+  const insets    = useSafeAreaInsets();
+
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // ── Register global tab switcher ─────────────────────────────────────────
+  React.useEffect(() => {
+    _switchTab = (name: string) => {
+      const idx = TABS.findIndex(t => t.name === name);
+      if (idx !== -1) setActiveIndex(idx);
+    };
+    return () => { _switchTab = null; };
+  }, []);
+
+  // ── Listen for navigate('MainTabs', { screen: 'Cart' }) calls ────────────
+  const route = useRoute<RouteProp<RootStackParamList, 'MainTabs'>>();
+  React.useEffect(() => {
+    const targetScreen = (route.params as any)?.screen as string | undefined;
+    if (!targetScreen) return;
+    const idx = TABS.findIndex(t => t.name === targetScreen);
+    if (idx !== -1) setActiveIndex(idx);
+  }, [route.params]);
+
+  const screens = [
+    <HomeScreen       {...({} as any)} />,
+    <CategoriesScreen {...({} as any)} />,
+    <CartScreen       {...({} as any)} />,
+    <ProfileScreen    {...({} as any)} />,
+  ];
 
   return (
-    <Tab.Navigator
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <CustomTabBar {...props} />}
-    >
-      <Tab.Screen name="Home"      component={HomeScreen as ComponentType<any>} />
-      <Tab.Screen name="Favourite" component={CategoriesScreen as ComponentType<any>} />
-      <Tab.Screen name="Cart"    component={CartScreen as ComponentType<any>} />
-      <Tab.Screen name="Account" component={(isLoggedIn ? ProfileScreen      : LoginPromptScreen) as ComponentType<any>} />
-    </Tab.Navigator>
+    <View style={{ flex: 1 }}>
+      <SlidingTabContainer activeIndex={activeIndex} screens={screens} />
+
+      {/* Tab Bar */}
+      <View style={[tabStyles.bar, { paddingBottom: insets.bottom + 8 }]}>
+        {TABS.map((tab, index) => (
+          <TabItem
+            key={tab.name}
+            tab={tab}
+            focused={activeIndex === index}
+            cartCount={cartCount}
+            onPress={() => setActiveIndex(index)}
+          />
+        ))}
+      </View>
+    </View>
   );
 };
 
@@ -205,19 +234,19 @@ const tabStyles = StyleSheet.create({
     elevation:       10,
   },
   tab: {
-    flex:        1,
-    alignItems:  'center',
-    paddingTop:  0,
+    flex:          1,
+    alignItems:    'center',
+    paddingTop:    0,
     paddingBottom: 10,
-    gap:         4,
+    gap:           4,
   },
   indicator: {
-    width:                '55%',
-    height:               3,
+    width:                   '55%',
+    height:                  3,
     borderBottomLeftRadius:  3,
     borderBottomRightRadius: 3,
-    backgroundColor:      'transparent',
-    marginBottom:         4,
+    backgroundColor:         'transparent',
+    marginBottom:            4,
   },
   indicatorActive: {
     backgroundColor: Colors.primary,
@@ -236,72 +265,20 @@ const tabStyles = StyleSheet.create({
     fontWeight: '700',
   },
   badge: {
-    position:        'absolute',
-    top:             -5,
-    right:           -8,
-    minWidth:        16,
-    height:          16,
-    borderRadius:    8,
-    backgroundColor: Colors.primary,
-    alignItems:      'center',
-    justifyContent:  'center',
+    position:          'absolute',
+    top:               -5,
+    right:             -8,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   Colors.primary,
+    alignItems:        'center',
+    justifyContent:    'center',
     paddingHorizontal: 3,
   },
   badgeText: {
     fontSize:   9,
     color:      '#FFFFFF',
     fontWeight: '800',
-  },
-});
-
-const promptStyles = StyleSheet.create({
-  container: {
-    flex:            1,
-    alignItems:      'center',
-    justifyContent:  'center',
-    backgroundColor: Colors.background,
-    paddingHorizontal: 32,
-  },
-  emoji: {
-    fontSize:     40,
-    marginBottom: 16,
-  },
-  title: {
-    ...Typography.headingMedium,
-    color:        Colors.textPrimary,
-    textAlign:    'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    ...Typography.bodyMedium,
-    color:        Colors.textSecondary,
-    textAlign:    'center',
-    marginBottom: 32,
-  },
-  primary: {
-    width:           '100%',
-    paddingVertical: 14,
-    borderRadius:    12,
-    backgroundColor: Colors.primary,
-    alignItems:      'center',
-    marginBottom:    12,
-  },
-  primaryText: {
-    color:      '#FFFFFF',
-    fontWeight: '700',
-    fontSize:   15,
-  },
-  secondary: {
-    width:           '100%',
-    paddingVertical: 14,
-    borderRadius:    12,
-    borderWidth:     1.5,
-    borderColor:     Colors.primary,
-    alignItems:      'center',
-  },
-  secondaryText: {
-    color:      Colors.primary,
-    fontWeight: '600',
-    fontSize:   15,
   },
 });

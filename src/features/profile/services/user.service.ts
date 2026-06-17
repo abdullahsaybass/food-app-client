@@ -1,122 +1,135 @@
-import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * user.api.ts
+ *
+ * API calls for user profile and address management ONLY.
+ *
+ * Address shape matches the backend model:
+ *   type        — enum 'home' | 'work' | 'other'
+ *   label       — optional free-text display name
+ *   atoll       — required Maldives atoll
+ *   island      — required island name
+ *   street      — required
+ *   zip         — required postal code
+ *   location    — optional GPS { latitude, longitude }
+ *   locationLabel — optional reverse-geocode string
+ */
 
-import type { User } from '../../../types/user.types';
-import  { getProfileApi,
-          updateProfileApi,
-          deleteAccountApi,
-          updateProfilePictureApi,
-          removeProfilePictureApi,
-          addAddressApi,
-          updateAddressApi,
-          } from '../../profile/api/user.api'
+import { API }        from '../../../app/lib/api';
+import AsyncStorage   from '@react-native-async-storage/async-storage';
 
-interface AuthState {
-  token: string | null;
-  user: User | null;
-  isAuthenticated: boolean;
-  loading: boolean;
+// ─────────────────────────────────────────────
+// 👤 PROFILE
+// ─────────────────────────────────────────────
 
-  login: (token: string, user: User) => Promise<void>;
-  logout: () => Promise<void>;
-  hydrate: () => Promise<void>;
-  fetchUser: () => Promise<void>;
-
-  updateProfile: (data: { name?: string; phone?: string }) => Promise<void>;
-  updateProfilePic: (formData: FormData) => Promise<void>;
-  addAddress: (data: AddressInput) => Promise<void>;
-  updateAddress: (id: string, data: Partial<AddressInput>) => Promise<void>;
-}
-type AddressInput = {
-  street: string;
-  city: string;
-  state?: string;
-  zip?: string;
+export const getProfileApi = async () => {
+  const res = await API.get('/users/me');
+  return res.data;
 };
-export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  user: null,
-  isAuthenticated: false,
-  loading: true,
 
-  login: async (token, user) => {
-    if (!token) {
-      console.log("❌ Token is undefined");
-      return;
-    }
+export const updateProfileApi = async (data: {
+  name?:  string;
+  phone?: string;
+}) => {
+  const res = await API.put('/users/me', data);
+  return res.data;
+};
 
-    await AsyncStorage.setItem('token', String(token));
+export const deleteAccountApi = async () => {
+  const res = await API.delete('/users/me');
+  return res.data;
+};
 
-    set({
-      token,
-      user,
-      isAuthenticated: true,
-    });
-  },
+// ─────────────────────────────────────────────
+// 🖼️ PROFILE PICTURE
+// ─────────────────────────────────────────────
 
-  logout: async () => {
-    await AsyncStorage.removeItem('token');
+export const updateProfilePictureApi = async (formData: FormData) => {
+  const token = await AsyncStorage.getItem('token');
+  const res = await API.put('/users/me/profile-pic', formData, {
+    headers: {
+      'Content-Type':  'multipart/form-data',
+      'Authorization': `Bearer ${token}`,
+    },
+    transformRequest: (data) => data,
+  });
+  return res.data;
+};
 
-    set({
-      token: null,
-      user: null,
-      isAuthenticated: false,
-    });
-  },
+export const removeProfilePictureApi = async () => {
+  const res = await API.delete('/users/me/profile-pic');
+  return res.data;
+};
 
-  hydrate: async () => {
-    const token = await AsyncStorage.getItem('token');
+// ─────────────────────────────────────────────
+// 📍 ADDRESSES
+// ─────────────────────────────────────────────
 
-    set({
-      token,
-      user: null,
-      isAuthenticated: !!token,
-      loading: false,
-    });
-  },
-  fetchUser: async () => {
-    try {
-      const res = await getProfileApi();
+export const getAddressesApi = async () => {
+  const res = await API.get('/users/me/addresses');
+  return res.data;
+};
 
-      set({ user: res.data.user }); // ✅ FIX
+export const addAddressApi = async (data: {
+  type:            'home' | 'work' | 'other';
+  label?:          string;
+  recipientName?:  string;
+  recipientPhone?: string;
+  street:          string;
+  atoll:           string;
+  island:          string;
+  zip:             string;
+  location?: {
+    latitude:  number | null;
+    longitude: number | null;
+  };
+  locationLabel?:  string;
+  isDefault?:      boolean;
+}) => {
+  const res = await API.post('/users/me/addresses', data);
+  return res.data;
+};
 
-    } catch (err) {
-      console.log('Fetch user error:', err);
-    }
-  },
-  updateProfile: async (data: { name?: string; phone?: string }) => {
-    try {
-      const res = await updateProfileApi(data);
-      set({ user: res.user });
-    } catch (err) {
-      console.log("Update profile error:", err);
-    }
-  },
-  updateProfilePic: async (formData: FormData) => {
-    try {
-      const res = await updateProfilePictureApi(formData);
-      set({ user: res.user });
-    } catch (err) {
-      console.log("Update pic error:", err);
-    }
-  },
-  addAddress: async (data: AddressInput) => {
-    try {
-      const res = await addAddressApi(data);
-      set({ user: res.user });
-    } catch (err) {
-      console.log("Add address error:", err);
-    }
-  },
+export const updateAddressApi = async (
+  addressId: string,
+  data: Partial<{
+    type:           'home' | 'work' | 'other';
+    label:          string;
+    recipientName:  string;
+    recipientPhone: string;
+    street:         string;
+    atoll:          string;
+    island:         string;
+    zip:            string;
+    location: {
+      latitude:  number | null;
+      longitude: number | null;
+    };
+    locationLabel:  string;
+    isDefault:      boolean;
+  }>,
+) => {
+  const res = await API.put(`/users/me/addresses/${addressId}`, data);
+  return res.data;
+};
 
-  updateAddress: async (id: string, data: Partial<AddressInput>) => {
-    try {
-      const res = await updateAddressApi(id, data);
-      set({ user: res.user });
-    } catch (err) {
-      console.log("Update address error:", err);
-    }
-  },
+export const deleteAddressApi = async (addressId: string) => {
+  const res = await API.delete(`/users/me/addresses/${addressId}`);
+  return res.data;
+};
 
+export const setDefaultAddressApi = async (addressId: string) => {
+  const res = await API.patch(`/users/me/addresses/${addressId}/default`);
+  return res.data;
+};
 
-}));
+// ─────────────────────────────────────────────
+// 🔑 PASSWORD
+// ─────────────────────────────────────────────
+
+export const changePasswordApi = async (data: {
+  currentPassword: string;
+  newPassword:     string;
+}) => {
+  const res = await API.post('/users/change-password', data);
+  return res.data;
+};

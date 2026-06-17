@@ -1,6 +1,5 @@
 /**
  * product/services/product.service.ts
- * Wraps all /api/products endpoints.
  */
 
 import { API } from '../../../app/lib/api';
@@ -15,7 +14,6 @@ interface BackendVariant {
   minOrderQuantity: number;
   bulkPrice:        number;
   stockThreshold:   number;
-  // ✅ previously missing
   weight:           number;
   weightUnit:       string;
   piecesCount:      number;
@@ -32,7 +30,8 @@ interface BackendProduct {
   name:               string;
   slug:               string;
   description:        string;
-  category:           string;
+  // ✅ category is now a populated object from the backend
+  category:           { id?: string; _id?: string; name?: string; slug?: string; key?: string; image?: string } | string | null;
   tags:               string[];
   variants:           BackendVariant[];
   images:             { url: string; publicId?: string; altText?: string }[];
@@ -47,7 +46,6 @@ interface BackendProduct {
   updatedBy?:         string;
   createdAt:          string;
   updatedAt:          string;
-  // ✅ previously missing
   shortDescription:   string;
   brand:              string;
   quality:            string;
@@ -68,11 +66,32 @@ interface BackendProduct {
 // ── Backend category shape ────────────────────────────────────────────────────
 interface BackendCategory {
   _id:          string;
+  id?:          string;
   name:         string;
-  image?:       string;
+  // Backend returns image as an object: { url, publicId, altText } — not a plain string.
+  image?:       { url?: string | null; publicId?: string | null; altText?: string } | string | null;
+  banner?:      { url?: string | null; publicId?: string | null; altText?: string } | string | null;
   color?:       string;
+  isActive?:    boolean;
   description?: string;
 }
+export interface CartItem {
+  product:         Product;
+  selectedVariant: ProductVariant;
+  quantity:        number;
+}
+
+// ── Helper: safely extract category id and name ───────────────────────────────
+// ✅ FIX: category is now an object { id, name, slug } not a plain string
+const extractCategory = (raw: BackendProduct['category']): { id: string; name: string } => {
+  if (!raw) return { id: '', name: '' };
+  if (typeof raw === 'string') {
+    return { id: raw.toLowerCase().trim(), name: raw };
+  }
+  const id   = (raw.id ?? raw._id ?? '').trim();
+  const name = raw.name ?? '';
+  return { id, name };
+};
 
 // ── Map backend variant → ProductVariant ─────────────────────────────────────
 const toVariant = (v: BackendVariant): ProductVariant => ({
@@ -83,7 +102,6 @@ const toVariant = (v: BackendVariant): ProductVariant => ({
   minOrderQuantity: v.minOrderQuantity ?? 1,
   bulkPrice:        v.bulkPrice        ?? 0,
   stockThreshold:   v.stockThreshold   ?? 10,
-  // ✅ variant detail fields
   weight:           v.weight           ?? 0,
   weightUnit:       v.weightUnit       ?? 'kg',
   piecesCount:      v.piecesCount      ?? 0,
@@ -96,14 +114,17 @@ const toVariant = (v: BackendVariant): ProductVariant => ({
 // ── Map backend product → Product ────────────────────────────────────────────
 const toProduct = (p: BackendProduct): Product => {
   const variants: ProductVariant[] = (p.variants ?? []).map(toVariant);
+  // ✅ FIX: extract category safely from object
+  const cat = extractCategory(p.category);
 
   return {
     id:                 p._id ?? p.id ?? '',
     name:               p.name               ?? '',
     slug:               p.slug               ?? '',
     description:        p.description        ?? '',
-    category:           p.category?.toLowerCase()?.trim() ?? '',
-    categoryId:         p.category?.toLowerCase()?.trim() ?? '',
+    category:           cat.id,    // ✅ always a safe string (_id)
+    categoryId:         cat.id,    // ✅ used for filtering
+    categoryName:       cat.name,  // ✅ human-readable name
     tags:               p.tags               ?? [],
     variants,
     images:             p.images             ?? [],
@@ -119,20 +140,17 @@ const toProduct = (p: BackendProduct): Product => {
     updatedBy:          p.updatedBy          ?? '',
     createdAt:          p.createdAt          ?? '',
     updatedAt:          p.updatedAt          ?? '',
-    // ✅ product info fields
     shortDescription:   p.shortDescription   ?? '',
     brand:              p.brand              ?? '',
     quality:            p.quality            ?? '',
     countryOrigin:      p.countryOrigin      ?? '',
     storageInstruction: p.storageInstruction ?? '',
     usageInstruction:   p.usageInstruction   ?? '',
-    // ✅ product flags
     halal:              p.halal              ?? false,
     frozen:             p.frozen             ?? false,
     fresh:              p.fresh              ?? false,
     bestSeller:         p.bestSeller         ?? false,
     newArrival:         p.newArrival         ?? false,
-    // ✅ analytics
     rating:             p.rating             ?? 0,
     reviewCount:        p.totalReviews       ?? 0,
     totalReviews:       p.totalReviews       ?? 0,
@@ -167,25 +185,41 @@ interface ListResult {
 // ── Service ───────────────────────────────────────────────────────────────────
 export const productService = {
 
-  // GET /api/products/categories
+  // GET /api/categories
   getCategories: async (): Promise<Category[]> => {
-    const { data } = await API.get('/products/categories');
+  const { data } = await API.get('/categories');
 
-    const raw: BackendCategory[] =
-      data?.data?.categories ?? data?.data ?? data?.categories ?? [];
+  console.log(
+    'CATEGORY API RESPONSE',
+    JSON.stringify(data, null, 2)
+  );
 
-    const mapped: Category[] = raw.map((c, i) => ({
-      id:    c.name?.toLowerCase()?.trim() ?? '',
-      name:  c.name,
+  const raw: BackendCategory[] = data?.data ?? data?.categories ?? [];
+
+  const mapped: Category[] = raw
+    .filter(c => c.isActive !== false)
+    .map((c, i) => ({
+      id: c._id ?? c.id ?? '',
+      name: c.name ?? '',
       color: c.color ?? CAT_COLORS[i % CAT_COLORS.length],
-      image: c.image ?? FALLBACK_IMAGE,
+      image:
+        (typeof c.image === 'string'
+          ? c.image
+          : c.image?.url) || FALLBACK_IMAGE,
+      // ✅ banner is its own field — no fallback. If the admin didn't upload
+      // a banner, this stays undefined so the UI skips it entirely instead
+      // of substituting the small category `image` thumbnail.
+      banner:
+        (typeof c.banner === 'string'
+          ? c.banner
+          : c.banner?.url) || undefined,
     }));
 
-    return [
-      { id: 'all', name: 'All', color: '#FF6B35', image: FALLBACK_IMAGE },
-      ...mapped,
-    ];
-  },
+  return [
+    { id: 'all', name: 'All', color: '#FF6B35', image: FALLBACK_IMAGE },
+    ...mapped,
+  ];
+},
 
   // GET /api/products
   listProducts: async (params: ListParams = {}): Promise<ListResult> => {
@@ -194,24 +228,21 @@ export const productService = {
       limit:    params.limit ?? 10,
       page:     params.page  ?? 1,
     };
+    
 
-    if (params.search)  query.search  = params.search;
+    if (params.search)  query.search = params.search;
     if (params.popular) { query.sortBy = 'createdAt'; query.sortOrder = 'desc'; }
+
+    // ✅ FIX: send category _id to backend — let server filter, not client
+    if (params.categoryId && params.categoryId !== 'all') {
+      query.category = params.categoryId;
+    }
 
     const { data } = await API.get('/products', { params: query });
 
     const products = (data.data.products as BackendProduct[]).map(toProduct);
 
-    const filtered =
-      params.categoryId && params.categoryId !== 'all'
-        ? products.filter(
-            item =>
-              item.category?.toLowerCase()?.trim() ===
-              params.categoryId?.toLowerCase()?.trim(),
-          )
-        : products;
-
-    return { data: filtered, pagination: data.data.pagination };
+    return { data: products, pagination: data.data.pagination };
   },
 
   // GET /api/products/:id
@@ -220,4 +251,5 @@ export const productService = {
     const raw: BackendProduct = data.data?.product ?? data.data;
     return toProduct(raw);
   },
+  
 };

@@ -3,20 +3,30 @@
  */
 export interface Address {
   _id?:            string;
-  label?:          'home' | 'work' | 'other'; // ✅ narrow the type
+  // 'type' is the enum category (home / work / other)
   type?:           'home' | 'work' | 'other';
-  fullName?:       string;
+  // 'label' is the optional free-text display name (e.g. "My Home")
+  label?:          string;
   recipientName?:  string;
-  phone?:          string;
   recipientPhone?: string;
+  phoneCountry?:   string;       // 'MV' only (Maldives-only delivery)
   street:          string;
-  city:            string;
+  atoll:           string;
+  island:          string;
+  // city is auto-derived on the backend as "<island>, <atoll>"
+  city?:           string;
   state?:          string;
-  postalCode?:     string;
   zip?:            string;
   country?:        string;
+  // GPS coords from map picker — used for Maldives-only delivery validation
+  location?: {
+    latitude:  number | null;
+    longitude: number | null;
+  };
+  locationLabel?:  string;
   isDefault?:      boolean;
 }
+
 export interface User {
   _id:    string;
   name:   string;
@@ -31,6 +41,7 @@ export interface User {
     publicId?: string;
   };
 
-  isActive?:        boolean;
-  isEmailVerified?: boolean;
+  isActive?:  boolean;
+  lastLogin?: string;
+  createdAt?: string;
 }

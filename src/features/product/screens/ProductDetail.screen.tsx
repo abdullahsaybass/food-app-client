@@ -345,21 +345,12 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [searchQuery,     setSearchQuery]     = useState('');
 
   const addToCart  = useProductStore(s => s.addToCart);
-  const cartItems  = useProductStore(s => s.cartItems);
   const cartCount  = useProductStore(s => s.cartCount);
-  const uniqueItemCount = cartItems.length;
-
-  const cartItem = cartItems.find(
-    i => i.product.id === productId && i.selectedVariant.unit === selectedVariant?.unit,
-  );
-  const isInCart    = !!cartItem;
-  const cartQty     = cartItem?.quantity ?? 0;
-  const hasMoreToAdd = quantity > cartQty;
 
   const handleAddToCart = () => {
     if (!product || !product.inStock || !selectedVariant) return;
-    if (isInCart && !hasMoreToAdd) return;
-    addToCart(product, selectedVariant, isInCart ? quantity - cartQty : quantity);
+    addToCart(product, selectedVariant, quantity);
+    navigation.navigate('MainTabs', { screen: 'Cart' });
   };
 
   useEffect(() => {
@@ -453,9 +444,9 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <MaterialCommunityIcons name="cart-outline" size={20} color={Colors.grey700} />
-              {uniqueItemCount > 0 && (
+              {cartCount > 0 && (
                 <View style={s.cartBadge}>
-                  <Text style={s.cartBadgeText}>{uniqueItemCount > 99 ? '99+' : uniqueItemCount}</Text>
+                  <Text style={s.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -659,23 +650,18 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           style={[
             s.addToCartBtn,
             !product.inStock && s.btnOutOfStock,
-            isInCart && !hasMoreToAdd && s.btnAddedToCart,
           ]}
           onPress={handleAddToCart}
           activeOpacity={0.88}
-          disabled={!product.inStock || (isInCart && !hasMoreToAdd)}
+          disabled={!product.inStock}
         >
           <MaterialCommunityIcons
-            name={isInCart && !hasMoreToAdd ? 'cart-check' : 'cart-outline'}
+            name="cart-outline"
             size={20}
             color="#fff"
           />
           <Text style={s.addToCartText}>
-            {!product.inStock
-              ? 'Out of Stock'
-              : isInCart && !hasMoreToAdd
-              ? 'Added to Cart'
-              : 'Add to Cart'}
+            {!product.inStock ? 'Out of Stock' : 'Add to Cart'}
           </Text>
           <View style={s.btnPriceDivider} />
           <Text style={s.btnPriceText}>{formatMVR(totalPrice)}</Text>

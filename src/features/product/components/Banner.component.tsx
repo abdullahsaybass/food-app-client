@@ -21,7 +21,7 @@ export const BannerCarousel: React.FC = () => {
   };
 
   return (
-    <View>
+    <View style={styles.wrapper}>
       <ScrollView
         horizontal
         pagingEnabled={false}
@@ -52,7 +52,8 @@ export const BannerCarousel: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingHorizontal: 20, gap: 12 },
+  wrapper:       { paddingHorizontal: 20 },
+  scrollContent: { gap: 12 },
 
   bannerImage: {
     height: 185,

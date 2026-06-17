@@ -9,39 +9,39 @@ import type { OrderStatus } from '../types/order.types';
 // ─── Status display ───────────────────────────────────────────────────────────
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending:    'Pending',
-  confirmed:  'Confirmed',
-  processing: 'Processing',
-  shipped:    'Shipped',
-  delivered:  'Delivered',
-  cancelled:  'Cancelled',
+  pending:          'Order Placed',
+  confirmed:        'Confirmed',
+  packing:          'Packing',
+  out_for_delivery: 'Out for Delivery',
+  delivered:        'Delivered',
+  cancelled:        'Cancelled',
 };
 
 export const ORDER_STATUS_COLOR: Record<OrderStatus, string> = {
-  pending:    '#FF9800',
-  confirmed:  '#2196F3',
-  processing: '#9C27B0',
-  shipped:    '#03A9F4',
-  delivered:  '#4CAF50',
-  cancelled:  '#F44336',
+  pending:          '#FF9800',
+  confirmed:        '#2196F3',
+  packing:          '#9C27B0',
+  out_for_delivery: '#03A9F4',
+  delivered:        '#4CAF50',
+  cancelled:        '#F44336',
 };
 
 export const ORDER_STATUS_BG: Record<OrderStatus, string> = {
-  pending:    '#FFF3E0',
-  confirmed:  '#E3F2FD',
-  processing: '#F3E5F5',
-  shipped:    '#E1F5FE',
-  delivered:  '#E8F5E9',
-  cancelled:  '#FFEBEE',
+  pending:          '#FFF3E0',
+  confirmed:        '#E3F2FD',
+  packing:          '#F3E5F5',
+  out_for_delivery: '#E1F5FE',
+  delivered:        '#E8F5E9',
+  cancelled:        '#FFEBEE',
 };
 
 export const ORDER_STATUS_EMOJI: Record<OrderStatus, string> = {
-  pending:    '🕐',
-  confirmed:  '✅',
-  processing: '⚙️',
-  shipped:    '🚚',
-  delivered:  '📦',
-  cancelled:  '❌',
+  pending:          '🕐',
+  confirmed:        '✅',
+  packing:          '📦',
+  out_for_delivery: '🚚',
+  delivered:        '🎉',
+  cancelled:        '❌',
 };
 
 /** Human-readable status badge props */

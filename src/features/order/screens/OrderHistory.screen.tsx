@@ -49,22 +49,22 @@ const BLUE   = '#3B5BDB';
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
-type TabKey = 'all' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+type TabKey = 'all' | 'packing' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'all',        label: 'All Orders'  },
-  { key: 'processing', label: 'Processing'  },
-  { key: 'shipped',    label: 'Shipped'     },
-  { key: 'delivered',  label: 'Delivered'   },
-  { key: 'cancelled',  label: 'Cancelled'   },
+  { key: 'all',              label: 'All Orders'      },
+  { key: 'packing',          label: 'Packing'         },
+  { key: 'out_for_delivery', label: 'Out for Delivery'},
+  { key: 'delivered',        label: 'Delivered'       },
+  { key: 'cancelled',        label: 'Cancelled'       },
 ];
 
 const STATUS_GROUPS: Record<TabKey, string[]> = {
-  all:        [],
-  processing: ['pending', 'confirmed', 'processing'],
-  shipped:    ['on_the_way', 'shipped', 'out_for_delivery'],
-  delivered:  ['delivered'],
-  cancelled:  ['cancelled'],
+  all:              [],
+  packing:          ['pending', 'confirmed', 'packing'],
+  out_for_delivery: ['out_for_delivery'],
+  delivered:        ['delivered'],
+  cancelled:        ['cancelled'],
 };
 
 // ─── Order card ───────────────────────────────────────────────────────────────

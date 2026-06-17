@@ -1,34 +1,59 @@
 import React, { useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  Image,
+  View, Text, StyleSheet, TouchableOpacity, Dimensions, Image,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
 import { useProductStore } from '../store/product.store';
 import {
-  formatPrice,
-  getVariantDiscountedPrice,
-  getCheapestVariant,
+  formatPrice, getVariantDiscountedPrice, getCheapestVariant,
 } from '../utils/product.utils';
-
 import type { Product } from '../types/product.types';
-import { FontFamily, FontSize } from '../../../theme/typography';
-const { width } = Dimensions.get('window');
+import { FontFamily } from '../../../theme/typography';
 
+const { width } = Dimensions.get('window');
 const CARD_WIDTH  = Math.floor((width - 48) / 3);
 const HCARD_WIDTH = (width - 40) / 2.45;
 
-const IconZap = ({ size = 10, color = '#FF6B35' }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-    <Path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill={color} />
-  </Svg>
-);
+function useCartActions(product: Product) {
+  const addToCart      = useProductStore(s => s.addToCart);
+  const updateQuantity = useProductStore(s => s.updateQuantity);
+  const removeFromCart = useProductStore(s => s.removeFromCart);
+  const cartItems      = useProductStore(s => s.cartItems);
 
+  const displayVariant  = getCheapestVariant(product) ?? product.variants[0];
+  const discountedPrice = displayVariant
+    ? getVariantDiscountedPrice(displayVariant, product.discountPercentage)
+    : 0;
+
+  const cartItem = cartItems.find(
+    i => i.product.id === product.id && i.selectedVariant.unit === displayVariant?.unit,
+  );
+  const quantity = cartItem?.quantity ?? 0;
+  const inCart   = quantity > 0;
+
+  const handleAdd = useCallback((e: any) => {
+    e.stopPropagation();
+    if (!displayVariant) return;
+    addToCart(product, displayVariant);
+  }, [product, displayVariant, addToCart]);
+
+  const handleIncrease = useCallback((e: any) => {
+    e.stopPropagation();
+    if (!displayVariant) return;
+    updateQuantity(product.id, displayVariant.unit, quantity + 1);
+  }, [product, displayVariant, quantity, updateQuantity]);
+
+  const handleDecrease = useCallback((e: any) => {
+    e.stopPropagation();
+    if (!displayVariant) return;
+    if (quantity <= 1) removeFromCart(product.id, displayVariant.unit);
+    else updateQuantity(product.id, displayVariant.unit, quantity - 1);
+  }, [product, displayVariant, quantity, updateQuantity, removeFromCart]);
+
+  return { discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease };
+}
+
+// ── Grid Card ─────────────────────────────────────────────────────────────────
 interface Props {
   product: Product;
   onPress: (product: Product) => void;
@@ -36,88 +61,57 @@ interface Props {
 }
 
 export const ProductCard: React.FC<Props> = ({ product, onPress, style }) => {
-  const addToCart = useProductStore(s => s.addToCart);
-
-  const displayVariant = getCheapestVariant(product) ?? product.variants[0];
-
-  const discountedPrice = displayVariant
-    ? getVariantDiscountedPrice(displayVariant, product.discountPercentage)
-    : 0;
-
-  const handleAdd = useCallback(
-    (e: any) => {
-      e.stopPropagation();
-      if (!displayVariant) return;
-      addToCart(product, displayVariant);
-    },
-    [product, displayVariant, addToCart],
-  );
+  const { discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease } =
+    useCartActions(product);
 
   return (
-    <TouchableOpacity
-      style={[styles.card, style]}
-      onPress={() => onPress(product)}
-      activeOpacity={0.92}
-    >
+    <TouchableOpacity style={[s.card, style]} onPress={() => onPress(product)} activeOpacity={0.92}>
       {product.discountPercentage > 0 && (
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>-{product.discountPercentage}%</Text>
+        <View style={s.discountBadge}>
+          <Text style={s.discountText}>-{product.discountPercentage}%</Text>
         </View>
       )}
 
-      <View style={styles.imageBox}>
-        <Image
-          source={{ uri: product.image }}
-          style={styles.productImage}
-          resizeMode="contain"
-        />
+      <View style={s.imageBox}>
+        <Image source={{ uri: product.image }} style={s.productImage} resizeMode="contain" />
       </View>
 
-      <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
-
-        <View style={styles.deliveryRow}>
-          <IconZap size={10} color="#FF6B35" />
-          <Text style={styles.deliveryText}>Fast Delivery</Text>
-        </View>
-
-        <View style={styles.bottomSection}>
-          <Text style={styles.price}>{formatPrice(discountedPrice)}</Text>
-        </View>
+      <View style={s.info}>
+        <Text style={s.name} numberOfLines={2}>{product.name}</Text>
+        <Text style={s.price}>{formatPrice(discountedPrice)}</Text>
       </View>
+
+      {inCart ? (
+        <View style={s.stepper}>
+          <TouchableOpacity style={s.minusBtn} onPress={handleDecrease} activeOpacity={0.7}>
+            <Text style={s.minusText}>−</Text>
+          </TouchableOpacity>
+          <Text style={s.stepCount}>{quantity}</Text>
+          <TouchableOpacity style={s.plusBtn} onPress={handleIncrease} activeOpacity={0.7}>
+            <Text style={s.plusText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.7} disabled={!product.inStock}>
+          <Text style={s.addText}>Add</Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 };
 
+// ── Horizontal Card ───────────────────────────────────────────────────────────
 interface HProps {
   product: Product;
   onPress: (product: Product) => void;
 }
 
 export const ProductCardHorizontal: React.FC<HProps> = ({ product, onPress }) => {
-  const addToCart = useProductStore(s => s.addToCart);
-
-  const displayVariant = getCheapestVariant(product) ?? product.variants[0];
-
-  const discountedPrice = displayVariant
-    ? getVariantDiscountedPrice(displayVariant, product.discountPercentage)
-    : 0;
-
-  const handleAdd = useCallback(
-    (e: any) => {
-      e.stopPropagation();
-      if (!displayVariant) return;
-      addToCart(product, displayVariant);
-    },
-    [product, displayVariant, addToCart],
-  );
+  const { discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease } =
+    useCartActions(product);
 
   return (
-    <TouchableOpacity
-      style={h.card}
-      onPress={() => onPress(product)}
-      activeOpacity={0.92}
-    >
+    <TouchableOpacity style={h.card} onPress={() => onPress(product)} activeOpacity={0.92}>
       {product.discountPercentage > 0 && (
         <View style={h.discountBadge}>
           <Text style={h.discountText}>-{product.discountPercentage}%</Text>
@@ -125,54 +119,42 @@ export const ProductCardHorizontal: React.FC<HProps> = ({ product, onPress }) =>
       )}
 
       <View style={h.imageBox}>
-        <Image
-          source={{ uri: product.image }}
-          style={h.productImage}
-          resizeMode="contain"
-        />
+        <Image source={{ uri: product.image }} style={h.productImage} resizeMode="contain" />
       </View>
 
       <View style={h.info}>
         <Text style={h.name} numberOfLines={2}>{product.name}</Text>
+        <Text style={h.price}>{formatPrice(discountedPrice)}</Text>
+      </View>
 
-        <View style={styles.deliveryRow}>
-          <IconZap size={10} color="#FF6B35" />
-          <Text style={styles.deliveryText}>Fast Delivery</Text>
-        </View>
-
-        <View style={styles.bottomSection}>
-          <View style={h.priceInline}>
-            <Text style={h.price}>{formatPrice(discountedPrice)}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={h.addBtn}
-            onPress={handleAdd}
-            activeOpacity={0.8}
-            disabled={!product.inStock}
-          >
-            <Text style={h.addBtnText}>+</Text>
+      {inCart ? (
+        <View style={h.stepper}>
+          <TouchableOpacity style={h.minusBtn} onPress={handleDecrease} activeOpacity={0.7}>
+            <Text style={h.minusText}>−</Text>
+          </TouchableOpacity>
+          <Text style={h.stepCount}>{quantity}</Text>
+          <TouchableOpacity style={h.plusBtn} onPress={handleIncrease} activeOpacity={0.7}>
+            <Text style={h.plusText}>+</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      ) : (
+        <TouchableOpacity style={h.addBtn} onPress={handleAdd} activeOpacity={0.7} disabled={!product.inStock}>
+          <Text style={h.addText}>Add</Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 };
 
 // ── Grid card styles ──────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F0F0F0',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
   },
 
   discountBadge: {
@@ -181,7 +163,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 5, paddingVertical: 2,
   },
-  discountText:  { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
+  discountText: { fontSize: 9, color: '#fff', fontFamily: FontFamily.bold },
 
   imageBox: {
     height: 90,
@@ -191,58 +173,94 @@ const styles = StyleSheet.create({
   },
   productImage: { width: '100%', height: '100%' },
 
-  info: { padding: 6, gap: 2 },
+  info: { paddingHorizontal: 6, paddingTop: 8, paddingBottom: 4, gap: 2 },
 
-  name: { fontSize: 14, fontWeight: '700', color: '#1a1a1a', lineHeight: 17, fontFamily: FontFamily.bold },
-
-  deliveryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginTop: 2,
+  name: {
+    fontSize: 13,
+    color: '#1a1a1a',
+    lineHeight: 18,
+    fontFamily: FontFamily.bold,
   },
-  deliveryText:  { fontSize: 9, fontWeight: '600', color: '#FF6B35', fontFamily: FontFamily.semiBold },
-
-  bottomSection: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  price: {
+    fontSize: 11,
+    color: '#E53935',
+    fontFamily: FontFamily.extraBold,
   },
-
-  priceInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flexShrink: 1,
-  },
-  price:{ fontSize: 11, fontWeight: '800', color: '#1a1a1a', fontFamily: FontFamily.extraBold },
-  originalPrice: { fontSize: 9, color: '#BDBDBD', textDecorationLine: 'line-through', fontFamily: FontFamily.regular },
 
   addBtn: {
-    width: 24, height: 24,
+    margin: 6,
+    marginTop: 4,
     borderRadius: 6,
-    borderWidth: 1, borderColor: '#E0E0E0',
+    borderWidth: 1.5,
+    borderColor: '#2E7D32',
+    paddingVertical: 5,
+    alignItems: 'center',
     backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
   },
-  addBtnText:{ fontSize: 17, fontWeight: '400', color: '#1a1a1a', lineHeight: 22, marginTop: -1, fontFamily: FontFamily.regular },
+  addText: {
+    fontSize: 11,
+    color: '#2E7D32',
+    fontFamily: FontFamily.bold,
+  },
+
+  stepper: {
+    flexDirection: 'row',
+    margin: 6,
+    marginTop: 4,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#2E7D32',
+    overflow: 'hidden',
+    height: 28,
+  },
+  minusBtn: {
+    flex: 1,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+  },
+  minusText: {
+    fontSize: 16,
+    color: '#2E7D32',
+    fontFamily: FontFamily.bold,
+    lineHeight: 20,
+  },
+  stepCount: {
+    flex: 1,
+    height: 28,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 28,
+    fontSize: 12,
+    color: '#2E7D32',
+    fontFamily: FontFamily.bold,
+    backgroundColor: '#fff',
+  },
+  plusBtn: {
+    flex: 1,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2E7D32',
+  },
+  plusText: {
+    fontSize: 16,
+    color: '#fff',
+    fontFamily: FontFamily.bold,
+    lineHeight: 20,
+  },
 });
 
 // ── Horizontal card styles ────────────────────────────────────────────────────
 const h = StyleSheet.create({
   card: {
     width: HCARD_WIDTH,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F0F0F0',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
   },
 
   discountBadge: {
@@ -251,7 +269,7 @@ const h = StyleSheet.create({
     borderRadius: 5,
     paddingHorizontal: 6, paddingVertical: 2,
   },
-  discountText: { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
+  discountText: { fontSize: 9, color: '#fff', fontFamily: FontFamily.bold },
 
   imageBox: {
     height: 120,
@@ -261,44 +279,81 @@ const h = StyleSheet.create({
   },
   productImage: { width: '100%', height: '100%' },
 
-  info: { padding: 10, gap: 3 },
+  info: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4, gap: 4 },
 
   name: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
     color: '#1a1a1a',
-    lineHeight: 20,
+    lineHeight: 19,
     fontFamily: FontFamily.bold,
   },
-
-  priceInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6, flexShrink: 1,
-  },
   price: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1a1a1a',
+    fontSize: 13,
+    color: '#E53935',
     fontFamily: FontFamily.extraBold,
-  },
-  originalPrice: {
-    fontSize: 10,
-    color: '#BDBDBD',
-    textDecorationLine: 'line-through',
-    fontFamily: FontFamily.regular,
   },
 
   addBtn: {
-    width: 30, height: 30,
+    margin: 10,
+    marginTop: 4,
     borderRadius: 8,
-    borderWidth: 1, borderColor: '#E0E0E0',
+    borderWidth: 1.5,
+    borderColor: '#2E7D32',
+    paddingVertical: 6,
+    alignItems: 'center',
     backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
   },
-  addBtnText: {
-    fontSize: 20, fontWeight: '400',
-    color: '#1a1a1a', lineHeight: 24, marginTop: -1,
-    fontFamily: FontFamily.regular,
+  addText: {
+    fontSize: 13,
+    color: '#2E7D32',
+    fontFamily: FontFamily.bold,
+  },
+
+  stepper: {
+    flexDirection: 'row',
+    margin: 10,
+    marginTop: 4,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#2E7D32',
+    overflow: 'hidden',
+    height: 34,
+  },
+  minusBtn: {
+    flex: 1,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+  },
+  minusText: {
+    fontSize: 18,
+    color: '#2E7D32',
+    fontFamily: FontFamily.bold,
+    lineHeight: 22,
+  },
+  stepCount: {
+    flex: 1,
+    height: 34,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 34,
+    fontSize: 13,
+    color: '#2E7D32',
+    fontFamily: FontFamily.bold,
+    backgroundColor: '#fff',
+  },
+  plusBtn: {
+    flex: 1,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2E7D32',
+  },
+  plusText: {
+    fontSize: 18,
+    color: '#fff',
+    fontFamily: FontFamily.bold,
+    lineHeight: 22,
   },
 });

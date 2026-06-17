@@ -1,9 +1,12 @@
 /**
  * order.service.ts
  *
- * Fix: placeOrder payload now sends { product, unit, quantity } per item
- * NOT { product, name, price, quantity } — backend validator expects `unit`,
- * not `name` or `price`. Backend resolves price from the product variant.
+ * Aligned with backend order.mapper.js output:
+ *  - shippingAddress (not deliveryAddress)
+ *  - zip (not postalCode)
+ *  - statusTimeline[].at (not timestamp)
+ *  - statusTimeline (not statusHistory)
+ *  - orderNumber, statusLabel, paymentStatus, estimatedDeliveryAt, cancelledBy, cancelReason
  */
 
 import { API } from '../../../app/lib/api';
@@ -13,6 +16,7 @@ import type {
   OrderListResult,
   OrderPagination,
   PlaceOrderPayload,
+  StatusTimelineEntry,
 } from '../types/order.types';
 
 // ─── Backend raw shapes ───────────────────────────────────────────────────────
@@ -30,37 +34,53 @@ interface BackendOrderProduct {
 
 interface BackendOrderItem {
   product:  BackendOrderProduct;
+  name?:    string;
+  unit:     string;
   quantity: number;
   price:    number;
+  subtotal: number;
 }
 
-interface BackendAddress {
-  fullName?:   string;
-  phone?:      string;
-  street?:     string;
-  city?:       string;
-  state?:      string;
-  postalCode?: string;
-  label?:      string;
+interface BackendTimelineEntry {
+  status:      string;
+  statusLabel: string;
+  note:        string | null;
+  at:          string;
+}
+
+interface BackendShippingAddress {
+  label?:         string;
+  fullName?:      string;
+  phone?:         string;
+  street?:        string;
+  city?:          string;
+  state?:         string;
+  zip?:           string;
+  country?:       string;
+  location?: { latitude: number | null; longitude: number | null };
+  locationLabel?: string;
 }
 
 interface BackendOrder {
-  _id:    string;
-  id?:    string;
-  status: string;
-  items:  BackendOrderItem[];
-  subtotal?:        number;
-  shippingFee?:     number;
-  shipping?:        number;
-  discount?:        number;
-  total?:           number;
-  totalAmount?:     number;
-  totalPrice?:      number;
-  shippingAddress?: BackendAddress;
-  deliveryAddress?: BackendAddress;
-  promoCode?: string;
-  createdAt:  string;
-  updatedAt:  string;
+  _id:                  string;
+  id?:                  string;
+  orderNumber?:         string;
+  status:               string;
+  statusLabel?:         string;
+  paymentMethod?:       string;
+  paymentStatus?:       string;
+  items:                BackendOrderItem[];
+  subtotal?:            number;
+  shippingFee?:         number;
+  discount?:            number;
+  totalAmount?:         number;
+  shippingAddress?:     BackendShippingAddress;
+  statusTimeline?:      BackendTimelineEntry[];
+  estimatedDeliveryAt?: string | null;
+  cancelledBy?:         string | null;
+  cancelReason?:        string | null;
+  createdAt:            string;
+  updatedAt:            string;
 }
 
 interface BackendPagination {
@@ -76,62 +96,66 @@ interface BackendPagination {
 const extractImageUri = (image: BackendProductImage): string | null => {
   if (!image) return null;
   if (typeof image === 'string') return image || null;
-  const obj = image as { url?: string };
-  return obj.url ?? null;
+  return (image as { url?: string }).url ?? null;
 };
+
 const toOrderItem = (raw: BackendOrderItem): OrderItem => ({
   product: {
-    id:    raw.product._id ?? raw.product.id ?? '',
-    name:  raw.product.name,
-    image: extractImageUri(raw.product.image),
-    price: raw.product.price,
-    unit:  raw.product.unit ?? 'pcs',
+    id:    raw.product?._id ?? raw.product?.id ?? '',
+    name:  raw.product?.name ?? raw.name ?? '',
+    image: extractImageUri(raw.product?.image),
+    price: raw.product?.price ?? raw.price,
+    unit:  raw.unit,
   },
-  unit:     raw.product.unit ?? 'pcs',  // ← add this
+  unit:     raw.unit,
   quantity: raw.quantity,
   price:    raw.price,
+  subtotal: raw.subtotal ?? raw.price * raw.quantity,
+});
+
+const toTimelineEntry = (raw: BackendTimelineEntry): StatusTimelineEntry => ({
+  status:      raw.status,
+  statusLabel: raw.statusLabel ?? raw.status,
+  note:        raw.note ?? null,
+  at:          raw.at,             // field is "at", not "timestamp"
 });
 
 const toOrder = (raw: BackendOrder): Order => {
-  const resolvedTotal =
-    raw.totalAmount ??
-    raw.total       ??
-    raw.totalPrice  ??
-    0;
-
-  const addr: BackendAddress =
-    raw.shippingAddress ??
-    raw.deliveryAddress ??
-    {};
-
+  const addr = raw.shippingAddress ?? {};
   return {
-    id:          raw._id ?? raw.id ?? '',
-    status:      raw.status as Order['status'],
-    items:       (raw.items ?? []).map(toOrderItem),
-    subtotal:    raw.subtotal             ?? 0,
-    shippingFee: raw.shippingFee ?? raw.shipping ?? 0,
-    discount:    raw.discount             ?? 0,
-    totalAmount: resolvedTotal,
-    total:       resolvedTotal,
-    deliveryAddress: {
-      fullName:   addr.fullName   ?? '',
-      phone:      addr.phone      ?? '',
-      street:     addr.street     ?? '',
-      city:       addr.city       ?? '',
-      state:      addr.state      ?? '',
-      postalCode: addr.postalCode ?? '',
+    id:                  raw._id ?? raw.id ?? '',
+    orderNumber:         raw.orderNumber ?? '',
+    status:              raw.status as Order['status'],
+    statusLabel:         raw.statusLabel ?? raw.status,
+    paymentMethod:       raw.paymentMethod ?? 'cod',
+    paymentStatus:       raw.paymentStatus ?? 'pending',
+    items:               (raw.items ?? []).map(toOrderItem),
+    subtotal:            raw.subtotal ?? raw.totalAmount ?? 0,
+    shippingFee:         raw.shippingFee ?? 0,
+    discount:            raw.discount ?? 0,
+    totalAmount:         raw.totalAmount ?? 0,
+    shippingAddress: {   // field is "shippingAddress", NOT "deliveryAddress"
+      fullName:      addr.fullName      ?? '',
+      phone:         addr.phone         ?? '',
+      street:        addr.street        ?? '',
+      city:          addr.city          ?? '',
+      state:         addr.state         ?? '',
+      zip:           addr.zip           ?? '',   // "zip", NOT "postalCode"
+      country:       addr.country       ?? 'Maldives',
+      label:         addr.label,
+      location:      addr.location,
+      locationLabel: addr.locationLabel,
     },
-    promoCode: raw.promoCode,
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
+    statusTimeline:      (raw.statusTimeline ?? []).map(toTimelineEntry),
+    estimatedDeliveryAt: raw.estimatedDeliveryAt ?? null,
+    cancelledBy:         (raw.cancelledBy ?? null) as Order['cancelledBy'],
+    cancelReason:        raw.cancelReason ?? null,
+    createdAt:           raw.createdAt,
+    updatedAt:           raw.updatedAt,
   };
 };
 
-const toPagination = (
-  raw: BackendPagination,
-  page: number,
-  limit: number,
-): OrderPagination => ({
+const toPagination = (raw: BackendPagination, page: number, limit: number): OrderPagination => ({
   total:      raw.total ?? raw.totalOrders ?? 0,
   page:       raw.page  ?? page,
   limit:      raw.limit ?? limit,
@@ -150,26 +174,11 @@ export interface OrderHistoryParams {
 
 export const orderService = {
 
-  /**
-   * POST /api/orders
-   *
-   * Payload shape (matches backend validator exactly):
-   * {
-   *   items: [{ product: "mongoId", unit: "1kg", quantity: 2 }],
-   *   shippingAddress: { fullName, phone, street, city, state, postalCode }
-   *   // OR
-   *   addressId: "savedAddress_id"
-   * }
-   *
-   * Backend resolves price from the product variant — never trust client price.
-   */
   placeOrder: async (payload: PlaceOrderPayload): Promise<Order> => {
-    console.log('🛒 PLACE ORDER PAYLOAD:', JSON.stringify(payload, null, 2));
     try {
       const { data } = await API.post('/orders', payload);
       return toOrder(data?.data ?? data);
     } catch (e: any) {
-      console.log('❌ ORDER ERROR:', JSON.stringify(e.response?.data, null, 2));
       throw new Error(
         e.response?.data?.message ??
         e.response?.data?.errors?.[0] ??
@@ -179,7 +188,6 @@ export const orderService = {
     }
   },
 
-  /** GET /api/orders — paginated order history */
   getOrderHistory: async (params: OrderHistoryParams = {}): Promise<OrderListResult> => {
     const page  = params.page  ?? 1;
     const limit = params.limit ?? 10;
@@ -189,17 +197,17 @@ export const orderService = {
     const { data } = await API.get('/orders', { params: query });
     const raw = data?.data ?? data;
     const orders: BackendOrder[] = raw.orders ?? raw.data ?? [];
-    const pagination = toPagination(raw.pagination ?? raw, page, limit);
-    return { orders: orders.map(toOrder), pagination };
+    return {
+      orders:     orders.map(toOrder),
+      pagination: toPagination(raw.pagination ?? raw, page, limit),
+    };
   },
 
-  /** GET /api/orders/:id */
   getOrderById: async (orderId: string): Promise<Order> => {
     const { data } = await API.get(`/orders/${orderId}`);
     return toOrder(data?.data ?? data);
   },
 
-  /** PATCH /api/orders/:id/cancel */
   cancelOrder: async (orderId: string): Promise<Order> => {
     const { data } = await API.patch(`/orders/${orderId}/cancel`, {});
     return toOrder(data?.data ?? data);

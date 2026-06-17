@@ -1,177 +1,71 @@
-// product/types/product.types.ts
-
-// ── Variant ───────────────────────────────────────────────────────────────
 export interface ProductVariant {
-  unit: string;
-
-  price: number;
-
-  quantity: number;
-
-  weight: number;
-
-  weightUnit: string;
-
-  piecesCount: number;
-
-  packetQuantity: number;
-
-  caseQuantity: number;
-
-  manufactureDate?: string;
-
-  expiryDate?: string;
-
-  sku: string;
-
+  unit:             string;
+  price:            number;
+  quantity:         number;
+  sku:              string;
   minOrderQuantity: number;
-
-  bulkPrice: number;
-
-  stockThreshold: number;
-
-  isLowStock?: boolean;
-
-  // OPTIONAL UI HELPERS
-  formattedWeight?: string;
-
-  discountPrice?: number;
+  bulkPrice:        number;
+  stockThreshold:   number;
+  weight:           number;
+  weightUnit:       string;
+  piecesCount:      number;
+  packetQuantity:   number;
+  caseQuantity:     number;
+  manufactureDate?: string;
+  expiryDate?:      string;
 }
 
-// ── Product Image ─────────────────────────────────────────────────────────
-export interface ProductImage {
-  url: string;
-
-  publicId?: string;
-
-  altText?: string;
-}
-
-// ── Product ───────────────────────────────────────────────────────────────
 export interface Product {
-  id: string;
-
-  // BASIC INFO
-  name: string;
-
-  slug: string;
-
-  shortDescription: string;
-
-  description: string;
-
-  category: string;
-
-  categoryId?: string;
-
-  brand: string;
-
-  quality: string;
-
-  countryOrigin: string;
-
-  storageInstruction: string;
-
-  usageInstruction: string;
-
-  tags: string[];
-
-  thumbnail?: string;
-
-  supplier?: string;
-
-  // VARIANTS
-  variants: ProductVariant[];
-
-  // IMAGES
-  images: ProductImage[];
-
-  image: string;
-
-  // PRODUCT FLAGS
-  featured: boolean;
-
-  bestSeller: boolean;
-
-  newArrival: boolean;
-
-  halal: boolean;
-
-  frozen: boolean;
-
-  fresh: boolean;
-
-  organic?: boolean;
-
-  // STATUS
-  isActive: boolean;
-
-  isDeleted: boolean;
-
-  // DISCOUNT
+  id:                 string;
+  name:               string;
+  slug:               string;
+  description:        string;
+  category:           string;   // category _id string
+  categoryId:         string;   // same as category, used for filtering
+  categoryName?:      string;   // ✅ human-readable category name
+  tags:               string[];
+  variants:           ProductVariant[];
+  images:             { url: string; publicId?: string; altText?: string }[];
+  image:              string;
+  featured:           boolean;
+  isActive:           boolean;
+  isDeleted:          boolean;
   discountPercentage: number;
-
-  // STOCK
-  totalStock: number;
-
-  inStock: boolean;
-
-  lowStockVariants: ProductVariant[];
-
-  // ANALYTICS
-  rating: number;
-
-  totalReviews: number;
-
-  totalSold: number;
-
-  totalViews: number;
-
-  reviewCount?: number;
-
-  soldCount?: number;
-
-  // AUDIT
-  createdBy: string;
-
-  updatedBy?: string;
-
-  createdAt: string;
-
-  updatedAt: string;
+  totalStock:         number;
+  inStock:            boolean;
+  lowStockVariants:   ProductVariant[];
+  createdBy:          string;
+  updatedBy:          string;
+  createdAt:          string;
+  updatedAt:          string;
+  shortDescription:   string;
+  brand:              string;
+  quality:            string;
+  countryOrigin:      string;
+  storageInstruction: string;
+  usageInstruction:   string;
+  halal:              boolean;
+  frozen:             boolean;
+  fresh:              boolean;
+  bestSeller:         boolean;
+  newArrival:         boolean;
+  rating:             number;
+  reviewCount:        number;
+  totalReviews:       number;
+  totalSold:          number;
+  totalViews:         number;
 }
 
-// ── Category ──────────────────────────────────────────────────────────────
 export interface Category {
-  id: string;
-
-  name: string;
-
-  color?: string;
-
-  image?: string;
+  id:      string;   // _id from MongoDB
+  name:    string;
+  color?:  string;
+  image?:  string | number; // string for remote URL, number for local require() — used for the small circular icon
+  banner?: string;          // wide banner image for the category strip — only set if admin uploaded one
 }
 
-// ── Banner ────────────────────────────────────────────────────────────────
-export interface Banner {
-  id: string;
-
-  title: string;
-
-  subtitle: string;
-
-  tagline?: string;
-
-  backgroundColor: string;
-
-  image: string;
-}
-
-// ── Cart ──────────────────────────────────────────────────────────────────
 export interface CartItem {
-  product: Product;
-
+  product:         Product;
   selectedVariant: ProductVariant;
-
-  quantity: number;
+  quantity:        number;
 }

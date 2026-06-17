@@ -35,6 +35,7 @@ export type RootStackParamList = {
   ProductDetail:    { productId: string };
   CategoryProducts: { categoryId: string; categoryName: string };
   OrderHistory: undefined;
+  Notifications: undefined;
 
   // ── Cart & Checkout flow ───────────────────────────────────────
   // Cart is a tab — navigate to it with:
@@ -42,6 +43,11 @@ export type RootStackParamList = {
   Checkout:      { selectedAddressId?: string } | undefined;
   SelectAddress: { initialSelectedId?: string } | undefined;
   AddAddress:    { address?: Address }           | undefined;
+  // Instamart-style map picker — returns picked location via locationPicker.store
+  ChooseLocation: {
+    initialLatitude?:  number;
+    initialLongitude?: number;
+  } | undefined;
   OrderSuccess:  {
     orderId:        string;
     cartTotal:      number;

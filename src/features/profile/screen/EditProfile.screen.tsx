@@ -1,8 +1,7 @@
 import React, { useReducer, useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, StatusBar, Image, Alert, ActivityIndicator,
-  Modal, FlatList,
+  TextInput, StatusBar, Image, Alert, ActivityIndicator, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Line, Polyline, Rect } from 'react-native-svg';
@@ -11,14 +10,15 @@ import { Colors, FontFamily } from '../../../theme';
 import { useAuthStore } from '../../auth/store/auth.store';
 import type { RootStackParamList } from '../../../app/navigation/navigation.types';
 import * as ImagePicker from 'expo-image-picker';
-import { MALDIVES_ATOLLS } from './Addaddressscreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;
 
+const NAVY = '#0F1729';
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
-const IconArrowLeft = ({ size = 22 }) => (
+const IconArrowLeft = ({ size = 22, color = '#111111' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#111111" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 const IconUser = ({ color = '#AAAAAA', size = 18 }) => (
@@ -38,75 +38,36 @@ const IconMail = ({ color = '#AAAAAA', size = 18 }) => (
     <Path d="M22 7l-10 7L2 7" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const IconTag = ({ color = '#AAAAAA', size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Line x1={7} y1={7} x2={7.01} y2={7} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-  </Svg>
-);
-const IconGlobe = ({ color = '#AAAAAA', size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={1.8} />
-    <Line x1={2} y1={12} x2={22} y2={12} stroke={color} strokeWidth={1.8} />
-    <Path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke={color} strokeWidth={1.8} />
-  </Svg>
-);
 const IconMapPin = ({ color = '#AAAAAA', size = 18 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx={12} cy={9} r={2.5} stroke={color} strokeWidth={1.8} />
   </Svg>
 );
-const IconHome = ({ color = '#AAAAAA', size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Polyline points="9 22 9 12 15 12 15 22" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-const IconCity = ({ color = '#AAAAAA', size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x={1} y={3} width={15} height={18} stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M16 8h4l3 3v9h-7V8z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Line x1={5} y1={7} x2={5} y2={7.01} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Line x1={9} y1={7} x2={9} y2={7.01} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Line x1={5} y1={11} x2={5} y2={11.01} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Line x1={9} y1={11} x2={9} y2={11.01} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Line x1={5} y1={15} x2={5} y2={15.01} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Line x1={9} y1={15} x2={9} y2={15.01} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-  </Svg>
-);
-const IconInbox = ({ color = '#AAAAAA', size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Polyline points="22 12 16 12 14 15 10 15 8 12 2 12" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-const IconBuilding = ({ color = '#AAAAAA', size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x={2} y={7} width={20} height={14} rx={2} ry={2} stroke={color} strokeWidth={1.8} />
-    <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-const IconLock = ({ color = '#AAAAAA', size = 18 }) => (
+const IconLock = ({ color = '#555555', size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={11} width={18} height={11} rx={2} ry={2} stroke={color} strokeWidth={1.8} />
     <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const IconTrash = ({ color = '#E53935', size = 18 }) => (
+const IconBell = ({ color = '#555555', size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Polyline points="3 6 5 6 21 6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M19 6l-1 14H6L5 6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M10 11v6M14 11v6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const IconChevronDown = ({ color = '#AAAAAA', size = 16 }) => (
+const IconShield = ({ color = '#555555', size = 20 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const IconChevronRight = ({ color = '#CCCCCC', size = 16 }) => (
+const IconShieldCheck = ({ color = Colors.primary, size = 14 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+const IconChevronRight = ({ color = '#CCCCCC', size = 18 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
@@ -116,37 +77,35 @@ const IconCheck = ({ color = '#FFFFFF', size = 14 }) => (
     <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const IconEdit = ({ size = 14 }) => (
+const IconEdit = ({ color = Colors.primary, size = 14 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={Colors.primary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={Colors.primary} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-const IconCamera = ({ size = 14 }) => (
+const IconCamera = ({ size = 12 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx={12} cy={13} r={4} stroke="#fff" strokeWidth={1.8} />
   </Svg>
 );
+const IconLogout = ({ color = '#E53935', size = 18 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Polyline points="16 17 21 12 16 7" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Line x1={21} y1={12} x2={9} y2={12} stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
 
 // ─── State ────────────────────────────────────────────────────────────────────
 interface FormState {
-  name:           string;
-  phone:          string;
-  addrLabel:      string;
-  addrType:       'home' | 'work' | 'other';
-  recipientName:  string;
-  recipientPhone: string;
-  street:         string;
-  city:           string;
-  atoll:          string;
-  zip:            string;
-  isDefault:      boolean;
-  loading:        boolean;
-  picLoading:     boolean;
+  name:       string;
+  phone:      string;
+  loading:    boolean;
+  picLoading: boolean;
 }
 type Action =
-  | { type: 'SET'; field: keyof Omit<FormState, 'loading' | 'picLoading'>; value: any }
+  | { type: 'SET'; field: 'name' | 'phone'; value: string }
   | { type: 'SET_LOADING'; value: boolean }
   | { type: 'SET_PIC_LOADING'; value: boolean };
 
@@ -159,123 +118,51 @@ function reducer(s: FormState, a: Action): FormState {
   }
 }
 
-// ─── LabeledInput ─────────────────────────────────────────────────────────────
-const LabeledInput = ({
-  icon, label, value, onChangeText, editable = true,
-  keyboardType, placeholder, multiline = false,
+// ─── Editable info row (inside Personal Information card) ─────────────────────
+const InfoRow = ({
+  icon, label, value, editing, onChangeText, onPress, last = false, editable = true,
+  keyboardType,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  onChangeText: (v: string) => void;
-  editable?: boolean;
-  keyboardType?: any;
-  placeholder?: string;
-  multiline?: boolean;
-}) => (
-  <View style={[iS.wrap, multiline && iS.wrapMulti, !editable && iS.wrapDisabled]}>
-    <View style={[iS.iconWrap, multiline && { paddingTop: 2 }]}>{icon}</View>
-    <View style={iS.textBlock}>
-      <Text style={iS.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[iS.input, !editable && iS.inputDisabled]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder ?? ''}
-        placeholderTextColor="#C8C8C8"
-        editable={editable}
-        keyboardType={keyboardType}
-        autoCapitalize="none"
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-        textAlignVertical={multiline ? 'top' : 'center'}
-      />
-    </View>
-  </View>
-);
-
-const LabeledSelect = ({
-  icon, label, value, placeholder, onPress, disabled = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  placeholder?: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) => (
-  <TouchableOpacity
-    style={[iS.wrap, disabled && iS.wrapDisabled]}
-    onPress={onPress}
-    activeOpacity={disabled ? 1 : 0.8}
-  >
-    <View style={iS.iconWrap}>{icon}</View>
-    <View style={iS.textBlock}>
-      <Text style={iS.fieldLabel}>{label}</Text>
-      <Text style={[iS.input, !value && { color: '#C8C8C8' }]}>
-        {value || placeholder || ''}
-      </Text>
-    </View>
-    {!disabled && <IconChevronDown color="#AAAAAA" size={16} />}
-  </TouchableOpacity>
-);
-
-const iS = StyleSheet.create({
-  wrap: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    borderWidth:       1,
-    borderColor:       '#EBEBEB',
-    borderRadius:      12,
-    paddingHorizontal: 14,
-    paddingVertical:   13,
-    backgroundColor:   '#FFFFFF',
-    marginBottom:      10,
-    gap:               12,
-  },
-  wrapMulti:    { alignItems: 'flex-start', paddingTop: 14 },
-  wrapDisabled: { backgroundColor: '#F7F7F7', borderColor: '#F0F0F0' },
-  iconWrap:     { width: 20, alignItems: 'center', justifyContent: 'center' },
-  textBlock:    { flex: 1 },
-  fieldLabel: {
-    fontFamily:   FontFamily.medium,
-    fontSize:     11,
-    color:        '#AAAAAA',
-    marginBottom: 3,
-    letterSpacing: 0.2,
-  },
-  input: {
-    fontFamily: FontFamily.semiBold,
-    fontSize:   14,
-    color:      '#111111',
-    padding:    0,
-    margin:     0,
-  },
-  inputDisabled: { color: '#AAAAAA' },
-});
-
-// ─── NavRow ───────────────────────────────────────────────────────────────────
-const NavRow = ({ icon, label, sub, onPress, last = false }: {
-  icon: React.ReactNode;
-  label: string;
-  sub?: string;
+  editing: boolean;
+  onChangeText?: (v: string) => void;
   onPress?: () => void;
   last?: boolean;
-}) => (
-  <TouchableOpacity
-    style={[nS.row, !last && nS.rowBorder]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={nS.iconWrap}>{icon}</View>
-    <View style={{ flex: 1 }}>
-      <Text style={nS.label}>{label}</Text>
-      {sub ? <Text style={nS.sub}>{sub}</Text> : null}
+  editable?: boolean;
+  keyboardType?: any;
+}) => {
+  const content = (
+    <View style={[rS.row, !last && rS.rowBorder]}>
+      <View style={rS.iconWrap}>{icon}</View>
+      <View style={{ flex: 1 }}>
+        <Text style={rS.label}>{label}</Text>
+        {editing && editable ? (
+          <TextInput
+            style={rS.input}
+            value={value}
+            onChangeText={onChangeText}
+            keyboardType={keyboardType}
+            placeholderTextColor="#C8C8C8"
+          />
+        ) : (
+          <Text style={rS.value}>{value || '—'}</Text>
+        )}
+      </View>
+      {!editing && <IconChevronRight color="#CCCCCC" size={16} />}
     </View>
-    <IconChevronRight color="#CCCCCC" size={16} />
-  </TouchableOpacity>
-);
-const nS = StyleSheet.create({
+  );
+
+  if (editing || !onPress) return content;
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      {content}
+    </TouchableOpacity>
+  );
+};
+const rS = StyleSheet.create({
   row: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -285,7 +172,49 @@ const nS = StyleSheet.create({
     backgroundColor:   '#FFFFFF',
   },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  iconWrap:  { width: 22, alignItems: 'center' },
+  iconWrap:  { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center' },
+  label: {
+    fontFamily: FontFamily.regular,
+    fontSize:   12,
+    color:      '#999999',
+    marginBottom: 3,
+  },
+  value: {
+    fontFamily: FontFamily.semiBold,
+    fontSize:   15,
+    color:      '#111111',
+  },
+  input: {
+    fontFamily: FontFamily.semiBold,
+    fontSize:   15,
+    color:      '#111111',
+    padding:    0,
+    margin:     0,
+  },
+});
+
+// ─── Nav row (Account Settings) ────────────────────────────────────────────────
+const NavRow = ({ icon, label, sub, onPress, last = false }: {
+  icon: React.ReactNode;
+  label: string;
+  sub?: string;
+  onPress?: () => void;
+  last?: boolean;
+}) => (
+  <TouchableOpacity
+    style={[rS.row, !last && rS.rowBorder]}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={rS.iconWrap}>{icon}</View>
+    <View style={{ flex: 1 }}>
+      <Text style={nS.label}>{label}</Text>
+      {sub ? <Text style={nS.sub}>{sub}</Text> : null}
+    </View>
+    <IconChevronRight color="#CCCCCC" size={18} />
+  </TouchableOpacity>
+);
+const nS = StyleSheet.create({
   label: {
     fontFamily: FontFamily.semiBold,
     fontSize:   14,
@@ -299,52 +228,49 @@ const nS = StyleSheet.create({
   },
 });
 
-// ─── Type Option ──────────────────────────────────────────────────────────────
-const TypeOption = ({
-  label, icon, selected, onPress,
-}: { label: string; icon: React.ReactNode; selected: boolean; onPress: () => void }) => (
-  <TouchableOpacity
-    style={[tS.option, selected && tS.optionSelected]}
-    onPress={onPress}
-    activeOpacity={0.8}
-  >
-    {icon}
-    <Text style={[tS.label, selected && tS.labelSelected]}>{label}</Text>
-    <View style={[tS.radio, selected && tS.radioSelected]}>
-      {selected && <View style={tS.radioDot} />}
+// ─── Section card ───────────────────────────────────────────────────────────────
+const SectionCard = ({
+  title, onEdit, editing, onCancel, saving, children,
+}: {
+  title: string;
+  onEdit?: () => void;
+  editing?: boolean;
+  onCancel?: () => void;
+  saving?: boolean;
+  children: React.ReactNode;
+}) => (
+  <View style={styles.sectionCard}>
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {onEdit && (
+        editing ? (
+          <View style={styles.editActions}>
+            <TouchableOpacity style={styles.cancelPill} onPress={onCancel} activeOpacity={0.7}>
+              <Text style={styles.cancelPillText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.savePill} onPress={onEdit} activeOpacity={0.85} disabled={saving}>
+              {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : (
+                  <>
+                    <IconCheck color="#fff" size={13} />
+                    <Text style={styles.savePillText}>Save</Text>
+                  </>
+                )
+              }
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.editPill} onPress={onEdit} activeOpacity={0.7}>
+            <IconEdit size={13} color={Colors.primary} />
+            <Text style={styles.editLinkText}>Edit</Text>
+          </TouchableOpacity>
+        )
+      )}
     </View>
-  </TouchableOpacity>
+    <View style={styles.cardBody}>{children}</View>
+  </View>
 );
-const tS = StyleSheet.create({
-  option: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    gap: 6, paddingHorizontal: 10, paddingVertical: 12,
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 12,
-    backgroundColor: '#FAFAFA',
-  },
-  optionSelected: { borderColor: Colors.primary, backgroundColor: '#F0FDF4' },
-  label:          { flex: 1, fontFamily: FontFamily.semiBold, fontSize: 13, color: '#999999' },
-  labelSelected:  { color: Colors.primary },
-  radio: {
-    width: 18, height: 18, borderRadius: 9,
-    borderWidth: 2, borderColor: '#DDDDDD',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  radioSelected: { borderColor: Colors.primary },
-  radioDot:      { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.primary },
-});
-
-// ─── Section Title ────────────────────────────────────────────────────────────
-const SectionTitle = ({ title }: { title: string }) => (
-  <Text style={secStyle}>{title}</Text>
-);
-const secStyle: any = {
-  fontFamily:   FontFamily.bold,
-  fontSize:     15,
-  color:        '#111111',
-  marginBottom: 12,
-  marginTop:    4,
-};
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
@@ -352,37 +278,34 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
   const fetchUser        = useAuthStore(s => s.fetchUser);
   const updateProfile    = useAuthStore(s => s.updateProfile);
   const updateProfilePic = useAuthStore(s => s.updateProfilePic);
-  const deleteAccount    = useAuthStore(s => (s as any).deleteAccount);
+  const logout           = useAuthStore(s => s.logout);
 
   const [state, dispatch] = useReducer(reducer, {
-    name:           user?.name  ?? '',
-    phone:          user?.phone ?? '',
-    addrLabel:      '',
-    addrType:       'home',
-    recipientName:  '',
-    recipientPhone: '',
-    street:         '',
-    city:           '',
-    atoll:          '',
-    zip:            '',
-    isDefault:      false,
-    loading:        false,
-    picLoading:     false,
+    name:       user?.name  ?? '',
+    phone:      user?.phone ?? '',
+    loading:    false,
+    picLoading: false,
   });
 
-  const [showAtollPicker, setShowAtollPicker] = useState(false);
-  const [atollSearch,     setAtollSearch]     = useState('');
+  const [editingPersonal, setEditingPersonal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const set = (field: keyof Omit<FormState, 'loading' | 'picLoading'>) =>
-    (value: any) => dispatch({ type: 'SET', field, value });
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const set = (field: 'name' | 'phone') =>
+    (value: string) => dispatch({ type: 'SET', field, value });
 
   const handleSave = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', value: true });
     try {
       await updateProfile({ name: state.name, phone: state.phone });
       await fetchUser();
-      Alert.alert('Success', 'Profile updated successfully');
-      navigation.goBack();
+      setEditingPersonal(false);
+      showToast('Profile updated successfully');
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message || 'Failed to update profile');
     } finally {
@@ -408,243 +331,167 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     } catch { Alert.alert('Error', 'Something went wrong'); }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert('Delete Account', 'This action is permanent and cannot be undone. Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await deleteAccount?.(); }
-        catch { Alert.alert('Error', 'Failed to delete account'); }
-      }},
-    ]);
-  };
+  const addresses     = (user as any)?.addresses ?? [];
+  const defaultAddr   = addresses.find((a: any) => a.isDefault) ?? addresses[0] ?? null;
 
-  const displayName = user?.name
-    ? user.name.charAt(0).toUpperCase() + user.name.slice(1)
-    : 'User';
-
-  const filteredAtolls = MALDIVES_ATOLLS.filter(a =>
-    a.toLowerCase().includes(atollSearch.toLowerCase())
-  );
+  const addrLine1 = defaultAddr
+    ? [defaultAddr.street, defaultAddr.city, 'Maldives'].filter(Boolean).join(', ')
+    : 'No address added yet';
+  const addrPhone = defaultAddr?.recipientPhone || defaultAddr?.phone || user?.phone || '';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      {/* ── Top bar ── */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.topBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <IconArrowLeft size={22} />
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>Edit Profile</Text>
-        <View style={{ width: 36 }} />
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.scrollContent}
       >
+        {/* ── Top bar ── */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.topBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <IconArrowLeft size={20} />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.topTitle}>Edit Profile</Text>
+            <Text style={styles.topSub}>Manage your personal information</Text>
+          </View>
+        </View>
 
-        {/* ── Profile card — matches Profile screen style ── */}
-        <View style={styles.profileCard}>
-          {/* Avatar */}
+        {/* ── Success toast ── */}
+        {toast && (
+          <View style={styles.toast}>
+            <IconShieldCheck color="#FFFFFF" size={16} />
+            <Text style={styles.toastText}>{toast}</Text>
+          </View>
+        )}
+
+        {/* ── Hero card ── */}
+        <View style={styles.heroCard}>
           <TouchableOpacity onPress={handleChangePic} activeOpacity={0.85} style={styles.avatarWrap}>
             {state.picLoading ? (
               <View style={styles.avatarCircle}>
-                <ActivityIndicator color={Colors.primary} />
+                <ActivityIndicator color="#fff" />
               </View>
             ) : user?.profilePic?.url ? (
               <Image source={{ uri: user.profilePic.url }} style={styles.avatarCircle} />
             ) : (
               <View style={[styles.avatarCircle, styles.avatarFallback]}>
-                <Text style={styles.avatarInitial}>{user?.name?.charAt(0).toUpperCase() ?? '?'}</Text>
+                <IconUser color="#9CA3AF" size={32} />
               </View>
             )}
-            {/* Camera badge */}
             <View style={styles.cameraBadge}>
               <IconCamera size={12} />
             </View>
           </TouchableOpacity>
 
-          {/* Meta */}
-          <View style={styles.profileMeta}>
-            <Text style={styles.profileName}>{displayName}</Text>
-            {user?.phone ? (
-              <View style={styles.metaRow}>
-                <IconPhone color="#888888" size={13} />
-                <Text style={styles.profileDetail}>{user.phone}</Text>
-              </View>
-            ) : null}
-            {user?.email ? (
-              <View style={styles.metaRow}>
-                <IconMail color="#888888" size={13} />
-                <Text style={styles.profileDetail}>{user.email}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Edit label */}
-          <TouchableOpacity style={styles.editBadge} onPress={handleChangePic} activeOpacity={0.7}>
-            <IconEdit size={13} />
-            <Text style={styles.editBadgeText}>Edit</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ══ Personal Information ══ */}
-        <View style={styles.section}>
-          <SectionTitle title="Personal Information" />
-          <View style={styles.card}>
-            <LabeledInput
-              icon={<IconUser color="#AAAAAA" size={18} />}
-              label="Full Name"
-              value={state.name}
-              onChangeText={set('name')}
-              placeholder="Enter full name"
-            />
-            <LabeledInput
-              icon={<IconPhone color="#AAAAAA" size={18} />}
-              label="Phone Number"
-              value={state.phone}
-              onChangeText={set('phone')}
-              keyboardType="phone-pad"
-              placeholder="+960 000 0000"
-            />
-            <LabeledInput
-              icon={<IconMail color="#AAAAAA" size={18} />}
-              label="Email Address"
-              value={user?.email ?? ''}
-              onChangeText={() => {}}
-              editable={false}
-            />
-          </View>
-        </View>
-
-        {/* ══ Address Information ══ */}
-        <View style={styles.section}>
-          <SectionTitle title="Address Information" />
-          <View style={styles.card}>
-            <LabeledInput
-              icon={<IconTag color="#AAAAAA" size={18} />}
-              label="Address Label"
-              value={state.addrLabel}
-              onChangeText={set('addrLabel')}
-              placeholder='e.g. "My Home", "Office"'
-            />
-            <LabeledInput
-              icon={<IconUser color="#AAAAAA" size={18} />}
-              label="Recipient Name"
-              value={state.recipientName}
-              onChangeText={set('recipientName')}
-              placeholder="Full name of recipient"
-            />
-            <LabeledInput
-              icon={<IconPhone color="#AAAAAA" size={18} />}
-              label="Recipient Phone"
-              value={state.recipientPhone}
-              onChangeText={set('recipientPhone')}
-              keyboardType="phone-pad"
-              placeholder="+960 XXXXXXX"
-            />
-            <LabeledSelect
-              icon={<IconGlobe color="#AAAAAA" size={18} />}
-              label="Country"
-              value="Maldives"
-              onPress={() => {}}
-              disabled
-            />
-            <LabeledSelect
-              icon={<IconMapPin color="#AAAAAA" size={18} />}
-              label="Atoll"
-              value={state.atoll}
-              placeholder="Select atoll"
-              onPress={() => setShowAtollPicker(true)}
-            />
-            <LabeledInput
-              icon={<IconHome color="#AAAAAA" size={18} />}
-              label="Address"
-              value={state.street}
-              onChangeText={set('street')}
-              placeholder="House no., Building, Street, Area"
-              multiline
-            />
-            <View style={styles.rowPair}>
-              <View style={{ flex: 1 }}>
-                <LabeledInput
-                  icon={<IconCity color="#AAAAAA" size={18} />}
-                  label="Island / City"
-                  value={state.city}
-                  onChangeText={set('city')}
-                  placeholder="Enter island"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <LabeledInput
-                  icon={<IconInbox color="#AAAAAA" size={18} />}
-                  label="Postal Code"
-                  value={state.zip}
-                  onChangeText={set('zip')}
-                  keyboardType="numeric"
-                  placeholder="e.g. 20026"
-                />
-              </View>
+          <View style={styles.heroMeta}>
+            <Text style={styles.heroName}>{user?.name || 'User'}</Text>
+            <Text style={styles.heroPhone}>{user?.phone || '—'}</Text>
+            <View style={styles.verifiedRow}>
+              <IconShieldCheck size={13} />
+              <Text style={styles.verifiedText}>Verified Account</Text>
             </View>
           </View>
 
-          {/* Address Type */}
-          <Text style={styles.subSectionTitle}>Address Type</Text>
-          <View style={styles.typeRow}>
-            <TypeOption
-              label="Home"
-              icon={<IconHome color={state.addrType === 'home' ? Colors.primary : '#AAAAAA'} size={16} />}
-              selected={state.addrType === 'home'}
-              onPress={() => set('addrType')('home')}
-            />
-            <TypeOption
-              label="Work"
-              icon={<IconBuilding color={state.addrType === 'work' ? Colors.primary : '#AAAAAA'} size={16} />}
-              selected={state.addrType === 'work'}
-              onPress={() => set('addrType')('work')}
-            />
-            <TypeOption
-              label="Other"
-              icon={<IconMapPin color={state.addrType === 'other' ? Colors.primary : '#AAAAAA'} size={16} />}
-              selected={state.addrType === 'other'}
-              onPress={() => set('addrType')('other')}
-            />
-          </View>
+          <IconChevronRight color="rgba(255,255,255,0.5)" size={20} />
+        </View>
 
-          {/* Set as Default */}
+        {/* ── Personal Information ── */}
+        <SectionCard
+          title="Personal Information"
+          editing={editingPersonal}
+          saving={state.loading}
+          onEdit={() => (editingPersonal ? handleSave() : setEditingPersonal(true))}
+          onCancel={() => {
+            dispatch({ type: 'SET', field: 'name',  value: user?.name  ?? '' });
+            dispatch({ type: 'SET', field: 'phone', value: user?.phone ?? '' });
+            setEditingPersonal(false);
+          }}
+        >
+          <InfoRow
+            icon={<IconUser color={Colors.primary} size={18} />}
+            label="Name"
+            value={state.name}
+            editing={editingPersonal}
+            onChangeText={set('name')}
+          />
+          <InfoRow
+            icon={<IconPhone color={Colors.primary} size={18} />}
+            label="Phone Number"
+            value={state.phone}
+            editing={editingPersonal}
+            onChangeText={set('phone')}
+            keyboardType="phone-pad"
+          />
+          <InfoRow
+            icon={<IconMail color={Colors.primary} size={18} />}
+            label="Email Address"
+            value={user?.email ?? ''}
+            editing={editingPersonal}
+            editable={false}
+            last
+          />
+        </SectionCard>
+
+        {/* ── Default Address ── */}
+        <SectionCard
+          title="Default Address"
+          onEdit={() => navigation.navigate('AddAddress', { address: defaultAddr ?? undefined })}
+        >
           <TouchableOpacity
-            style={styles.defaultRow}
-            onPress={() => set('isDefault')(!state.isDefault)}
-            activeOpacity={0.8}
+            style={styles.addrRow}
+            onPress={() => navigation.navigate('AddAddress', { address: defaultAddr ?? undefined })}
+            activeOpacity={0.7}
           >
-            <View style={[styles.checkbox, state.isDefault && styles.checkboxChecked]}>
-              {state.isDefault && <IconCheck color="#FFFFFF" size={12} />}
+            <View style={styles.addrIconWrap}>
+              <IconMapPin color={Colors.primary} size={18} />
             </View>
-            <Text style={styles.defaultLabel}>Set as default address</Text>
+            <View style={{ flex: 1 }}>
+              <View style={styles.addrTopRow}>
+                <Text style={styles.addrName}>{user?.name || 'User'}</Text>
+                {defaultAddr?.isDefault && (
+                  <View style={styles.defaultBadge}>
+                    <Text style={styles.defaultBadgeText}>Default</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.addrLine}>{addrLine1}</Text>
+              {addrPhone ? <Text style={styles.addrLine}>{addrPhone}</Text> : null}
+            </View>
+            <IconChevronRight color="#CCCCCC" size={18} />
           </TouchableOpacity>
-        </View>
+        </SectionCard>
 
-        {/* ══ Account ══ */}
-        <View style={styles.section}>
-          <SectionTitle title="Account" />
-          <View style={styles.listCard}>
-            <NavRow
-              icon={<IconLock color="#AAAAAA" size={18} />}
-              label="Change Password"
-              sub="Update your account password"
-              onPress={() => navigation.navigate('ChangePassword')}
-              last
-            />
-          </View>
-        </View>
+        {/* ── Account Settings ── */}
+        <SectionCard title="Account Settings">
+          <NavRow
+            icon={<IconLock color="#555555" size={18} />}
+            label="Change Password"
+            sub="Update your account password"
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+          <NavRow
+            icon={<IconBell color="#555555" size={18} />}
+            label="Notifications"
+            sub="Manage your notification preferences"
+            onPress={() => navigation.navigate('Settings')}
+          />
+          <NavRow
+            icon={<IconShield color="#555555" size={18} />}
+            label="Privacy & Security"
+            sub="Manage your privacy and security settings"
+            onPress={() => navigation.navigate('StaticContent', { type: 'privacy' })}
+            last
+          />
+        </SectionCard>
 
-        {/* ── Save ── */}
+        {/* ── Save Changes ── */}
         <TouchableOpacity
           style={styles.saveBtn}
           onPress={handleSave}
@@ -657,65 +504,46 @@ export const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
           }
         </TouchableOpacity>
 
-        {/* ── Cancel ── */}
+        {/* ── Logout ── */}
         <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
-
-        {/* ── Delete Account ── */}
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={handleDeleteAccount}
+          style={styles.logoutBtn}
+          onPress={() => setShowLogoutModal(true)}
           activeOpacity={0.8}
         >
-          <IconTrash color="#E53935" size={16} />
-          <Text style={styles.deleteBtnText}>Delete Account</Text>
+          <IconLogout size={18} />
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ── Atoll Picker Modal ── */}
+      {/* ── Logout confirm modal ── */}
       <Modal
-        visible={showAtollPicker}
-        animationType="slide"
+        visible={showLogoutModal}
+        animationType="fade"
         transparent
-        onRequestClose={() => setShowAtollPicker(false)}
+        onRequestClose={() => setShowLogoutModal(false)}
       >
         <View style={modal.overlay}>
-          <View style={modal.sheet}>
-            <View style={modal.handle} />
-            <Text style={modal.title}>Select Atoll</Text>
-            <View style={modal.searchWrap}>
-              <TextInput
-                style={modal.searchInput}
-                placeholder="Search atoll…"
-                placeholderTextColor="#BBBBBB"
-                value={atollSearch}
-                onChangeText={setAtollSearch}
-                autoFocus
-              />
+          <View style={modal.box}>
+            <Text style={modal.title}>Logout</Text>
+            <Text style={modal.message}>Are you sure you want to logout?</Text>
+            <View style={modal.btnRow}>
+              <TouchableOpacity
+                style={modal.cancelBtn}
+                onPress={() => setShowLogoutModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={modal.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={modal.confirmBtn}
+                onPress={() => { setShowLogoutModal(false); logout(); }}
+                activeOpacity={0.85}
+              >
+                <Text style={modal.confirmText}>Logout</Text>
+              </TouchableOpacity>
             </View>
-            <FlatList
-              data={filteredAtolls}
-              keyExtractor={item => item}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={modal.row}
-                  onPress={() => { set('atoll')(item); setAtollSearch(''); setShowAtollPicker(false); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={modal.rowText}>{item}</Text>
-                  {state.atoll === item && <IconCheck color={Colors.primary} size={14} />}
-                </TouchableOpacity>
-              )}
-              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F5F5F5' }} />}
-            />
           </View>
         </View>
       </Modal>
@@ -730,136 +558,210 @@ const styles = StyleSheet.create({
 
   // Top bar
   topBar: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           14,
+    marginBottom:  16,
+  },
+  topBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    borderWidth: 1, borderColor: '#EBEBEB',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  topTitle: { fontFamily: FontFamily.extraBold, fontSize: 20, color: '#111111' },
+  topSub:   { fontFamily: FontFamily.regular, fontSize: 13, color: '#999999', marginTop: 2 },
+
+  // Hero card
+  heroCard: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    backgroundColor: NAVY,
+    borderRadius:    16,
+    padding:         18,
+    gap:             14,
+    marginBottom:    16,
+  },
+  avatarWrap: { position: 'relative' },
+  avatarCircle: {
+    width: 64, height: 64, borderRadius: 32,
+    overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  avatarFallback: { backgroundColor: '#FFFFFF' },
+  cameraBadge: {
+    position:        'absolute',
+    bottom:          -2,
+    right:           -2,
+    width:           26,
+    height:          26,
+    borderRadius:    13,
+    backgroundColor: NAVY,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderWidth:     2,
+    borderColor:     '#FFFFFF',
+  },
+  heroMeta: { flex: 1 },
+  heroName: {
+    fontFamily:   FontFamily.extraBold,
+    fontSize:     18,
+    color:        '#FFFFFF',
+    marginBottom: 4,
+  },
+  heroPhone: {
+    fontFamily:   FontFamily.regular,
+    fontSize:     14,
+    color:        'rgba(255,255,255,0.7)',
+    marginBottom: 6,
+  },
+  verifiedRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           5,
+  },
+  verifiedText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize:   12,
+    color:      Colors.primary,
+  },
+
+  // Section card
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius:    14,
+    borderWidth:     1,
+    borderColor:     '#EFEFEF',
+    marginBottom:    16,
+    overflow:        'hidden',
+  },
+  sectionHeader: {
     flexDirection:     'row',
     alignItems:        'center',
     justifyContent:    'space-between',
     paddingHorizontal: 16,
-    paddingVertical:   14,
-    backgroundColor:   '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingTop:        16,
+    paddingBottom:     10,
   },
-  topBtn:   { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { fontFamily: FontFamily.bold, fontSize: 18, color: '#111111' },
-
-  // Profile card — matches Profile screen green card
-  profileCard: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: '#F0FDF4',
-    borderRadius:    16,
-    padding:         16,
-    marginBottom:    20,
-    gap:             14,
-    borderWidth:     1,
-    borderColor:     '#D1FAE5',
+  sectionTitle: {
+    fontFamily: FontFamily.bold,
+    fontSize:   15,
+    color:      '#111111',
   },
-  avatarWrap:    { position: 'relative' },
-  avatarCircle: {
-    width: 68, height: 68, borderRadius: 34,
-    overflow: 'hidden',
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#D1FAE5',
+  editPill: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               5,
+    backgroundColor:   '#F0FDF4',
+    borderRadius:      20,
+    paddingHorizontal: 12,
+    paddingVertical:   6,
   },
-  avatarFallback: { backgroundColor: '#D1FAE5' },
-  avatarInitial:  { fontFamily: FontFamily.bold, fontSize: 26, color: Colors.primary },
-  cameraBadge: {
-    position:        'absolute',
-    bottom:          0,
-    right:           0,
-    width:           24,
-    height:          24,
-    borderRadius:    12,
-    backgroundColor: Colors.primary,
-    alignItems:      'center',
-    justifyContent:  'center',
-    borderWidth:     2,
-    borderColor:     '#F0FDF4',
-  },
-  profileMeta:   { flex: 1 },
-  profileName: {
-    fontFamily:   FontFamily.extraBold,
-    fontSize:     16,
-    color:        '#111111',
-    marginBottom: 6,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           6,
-    marginBottom:  3,
-  },
-  profileDetail: {
-    fontFamily: FontFamily.regular,
-    fontSize:   13,
-    color:      '#555555',
-  },
-  editBadge: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             4,
-    alignSelf:       'flex-start',
-  },
-  editBadgeText: {
+  editLinkText: {
     fontFamily: FontFamily.semiBold,
     fontSize:   13,
     color:      Colors.primary,
   },
-
-  // Sections
-  section:       { marginBottom: 20 },
-  card:          { backgroundColor: 'transparent' },
-
-  rowPair:       { flexDirection: 'row', gap: 10 },
-  typeRow:       { flexDirection: 'row', gap: 8, marginBottom: 12 },
-
-  subSectionTitle: {
-    fontFamily:   FontFamily.semiBold,
-    fontSize:     13,
-    color:        '#555555',
-    marginBottom: 10,
-    marginTop:    2,
-  },
-
-  defaultRow: {
+  editActions: {
     flexDirection: 'row',
     alignItems:    'center',
-    gap:           10,
-    marginBottom:  4,
-    marginTop:     4,
-    paddingVertical: 4,
+    gap:           8,
   },
-  checkbox: {
-    width:           22,
-    height:          22,
-    borderRadius:    6,
-    borderWidth:     1.5,
-    borderColor:     '#DDDDDD',
-    backgroundColor: '#FFFFFF',
-    alignItems:      'center',
-    justifyContent:  'center',
+  cancelPill: {
+    borderRadius:      20,
+    paddingHorizontal: 12,
+    paddingVertical:   6,
+    borderWidth:       1,
+    borderColor:       '#E0E0E0',
   },
-  checkboxChecked: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  defaultLabel: {
-    fontFamily: FontFamily.medium,
+  cancelPillText: {
+    fontFamily: FontFamily.semiBold,
     fontSize:   13,
-    color:      '#333333',
+    color:      '#888888',
+  },
+  savePill: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               5,
+    backgroundColor:   Colors.primary,
+    borderRadius:      20,
+    paddingHorizontal: 14,
+    paddingVertical:   6,
+    minWidth:          64,
+    justifyContent:    'center',
+  },
+  savePillText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize:   13,
+    color:      '#FFFFFF',
+  },
+  cardBody: {},
+
+  // Toast
+  toast: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
+    backgroundColor:   Colors.primary,
+    borderRadius:      12,
+    paddingHorizontal: 14,
+    paddingVertical:   12,
+    marginBottom:      14,
+  },
+  toastText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize:   13,
+    color:      '#FFFFFF',
   },
 
-  // Account nav card
-  listCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius:    14,
-    borderWidth:     1,
-    borderColor:     '#EBEBEB',
-    overflow:        'hidden',
+  // Default address row
+  addrRow: {
+    flexDirection:     'row',
+    alignItems:        'flex-start',
+    gap:               14,
+    paddingHorizontal: 16,
+    paddingBottom:     16,
+  },
+  addrIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addrTopRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           8,
+    marginBottom:  4,
+  },
+  addrName: {
+    fontFamily: FontFamily.bold,
+    fontSize:   14,
+    color:      '#111111',
+  },
+  defaultBadge: {
+    backgroundColor:   '#F0FDF4',
+    borderRadius:      6,
+    paddingHorizontal: 8,
+    paddingVertical:   2,
+  },
+  defaultBadgeText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize:   11,
+    color:      Colors.primary,
+  },
+  addrLine: {
+    fontFamily: FontFamily.regular,
+    fontSize:   13,
+    color:      '#888888',
+    lineHeight: 19,
   },
 
   // Buttons
   saveBtn: {
     height:          52,
     borderRadius:    14,
-    backgroundColor: Colors.primary,
+    backgroundColor: NAVY,
     alignItems:      'center',
     justifyContent:  'center',
     marginBottom:    10,
@@ -870,35 +772,20 @@ const styles = StyleSheet.create({
     color:         '#FFFFFF',
     letterSpacing: 0.1,
   },
-  cancelBtn: {
-    height:          52,
-    borderRadius:    14,
-    borderWidth:     1.5,
-    borderColor:     '#E0E0E0',
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginBottom:    16,
-    backgroundColor: '#FFFFFF',
-  },
-  cancelBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize:   15,
-    color:      '#555555',
-  },
-  deleteBtn: {
+  logoutBtn: {
     flexDirection:   'row',
     alignItems:      'center',
     justifyContent:  'center',
     gap:             8,
-    height:          48,
+    height:          52,
     borderRadius:    14,
-    borderWidth:     1.5,
+    borderWidth:     1,
     borderColor:     '#FFCDD2',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#FFFFFF',
   },
-  deleteBtnText: {
+  logoutText: {
     fontFamily: FontFamily.semiBold,
-    fontSize:   14,
+    fontSize:   15,
     color:      '#E53935',
   },
 });
@@ -907,59 +794,41 @@ const modal = StyleSheet.create({
   overlay: {
     flex:            1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent:  'flex-end',
+    alignItems:      'center',
+    justifyContent:  'center',
+    padding:         24,
   },
-  sheet: {
-    backgroundColor:     '#FFFFFF',
-    borderTopLeftRadius:  24,
-    borderTopRightRadius: 24,
-    maxHeight:            '75%',
-    paddingBottom:        32,
-  },
-  handle: {
-    width:           40,
-    height:          4,
-    borderRadius:    2,
-    backgroundColor: '#E0E0E0',
-    alignSelf:       'center',
-    marginTop:       12,
-    marginBottom:    8,
+  box: {
+    width:           '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius:    16,
+    padding:         20,
   },
   title: {
-    fontFamily:        FontFamily.bold,
-    fontSize:          16,
-    color:             '#111111',
-    textAlign:         'center',
-    paddingVertical:   12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    fontFamily:   FontFamily.bold,
+    fontSize:     16,
+    color:        '#111111',
+    marginBottom: 6,
+    textAlign:    'center',
   },
-  searchWrap: {
-    marginHorizontal:  16,
-    marginVertical:    10,
-    backgroundColor:   '#F7F8FA',
-    borderRadius:      10,
-    paddingHorizontal: 14,
-    height:            42,
-    justifyContent:    'center',
-    borderWidth:       1,
-    borderColor:       '#EFEFEF',
+  message: {
+    fontFamily:   FontFamily.regular,
+    fontSize:     13,
+    color:        '#888888',
+    textAlign:    'center',
+    marginBottom: 18,
   },
-  searchInput: {
-    fontFamily: FontFamily.regular,
-    fontSize:   14,
-    color:      '#111111',
+  btnRow: { flexDirection: 'row', gap: 10 },
+  cancelBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    borderWidth: 1, borderColor: '#E0E0E0',
+    alignItems: 'center', justifyContent: 'center',
   },
-  row: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingHorizontal: 20,
-    paddingVertical:   14,
+  cancelText: { fontFamily: FontFamily.semiBold, fontSize: 14, color: '#555555' },
+  confirmBtn: {
+    flex: 1, height: 46, borderRadius: 12,
+    backgroundColor: '#E53935',
+    alignItems: 'center', justifyContent: 'center',
   },
-  rowText: {
-    flex:       1,
-    fontFamily: FontFamily.medium,
-    fontSize:   14,
-    color:      '#111111',
-  },
+  confirmText: { fontFamily: FontFamily.semiBold, fontSize: 14, color: '#FFFFFF' },
 });

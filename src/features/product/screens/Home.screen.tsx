@@ -7,35 +7,27 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import { Colors } from '../../../theme';
-import { ProductCard, ProductCardHorizontal } from '../components/ProductCard.component';
+import { ProductCard } from '../components/ProductCard.component';
 import { BannerCarousel } from '../components/Banner.component';
 import { CategoryList, STATIC_CATEGORIES } from '../components/CategoryList.component';
 import { useAuthStore } from '../../auth/store/auth.store';
 import { useProductStore } from '../store/product.store';
+import { useNotificationStore } from '../../notification/store/notification.store';
 import { productService } from '../services/product.service';
 import type { RootStackParamList } from '../../../app/navigation/navigation.types';
-import type { Product } from '../types/product.types';
-import banner1      from '@/assets/images/daily.png';
-import banner2      from '@/assets/images/delivery.png';
-import dalbanner    from '@/assets/images/dalbanner.png';
-import freezebanner from '@/assets/images/freshbanner.png';
-import seedbanner   from '@/assets/images/seedbanner.png';
-import nutsbanner   from '@/assets/images/nutsbanner.png';
-import { FontFamily, FontSize } from '../../../theme/typography';
+import type { Product, Category } from '../types/product.types';
+import banner2 from '@/assets/images/delivery.png';
+import { FontFamily } from '../../../theme/typography';
 import Homefooter from '../components/Home.footer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MainTabs'>;
 
 const PRIMARY = '#2E7D32';
 
-const CATEGORY_BANNERS: Record<string, any> = {
-  dal:    dalbanner,
-  frozen: freezebanner,
-  seeds:  seedbanner,
-  nuts:   nutsbanner,
-  powder: nutsbanner,
-};
+// ─── Icons ────────────────────────────────────────────────────────────────────
 
 const IconBell = ({ color = '#1a1a1a', size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -70,26 +62,26 @@ const IconLocation = ({ color = '#2E7D32', size = 16 }: { color?: string; size?:
   </Svg>
 );
 
+// ─── CategoryStrip ────────────────────────────────────────────────────────────
+
 interface StripProps {
   categoryId: string;
   title:      string;
-  banner:     any;
+  imageUri?:  string;
   onPress:    (p: Product) => void;
 }
-const CategoryStrip: React.FC<StripProps> = ({ categoryId, title, banner, onPress }) => {
+
+const CategoryStrip: React.FC<StripProps> = ({ categoryId, title, imageUri, onPress }) => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [products, setProducts] = React.useState<Product[]>([]);
   const [loading,  setLoading]  = React.useState(true);
 
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    productService.listProducts({ limit: 20 })
-      .then(res => {
-        if (cancelled) return;
-        setProducts(res.data.filter(
-          p => p.category?.toLowerCase()?.trim() === categoryId.toLowerCase()
-        ));
-      })
+    // ✅ Pass categoryId directly to backend — no client-side filtering
+    productService.listProducts({ categoryId, limit: 20 })
+      .then(res => { if (!cancelled) setProducts(res.data); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -97,17 +89,33 @@ const CategoryStrip: React.FC<StripProps> = ({ categoryId, title, banner, onPres
 
   if (!loading && products.length === 0) return null;
 
+  // ✅ Banner only renders if the category actually has a banner uploaded.
+  // imageUri is undefined whenever no banner exists — no fallback substitution.
+  const hasRealImage = !!imageUri && imageUri.trim() !== '';
+
   return (
     <View style={styles.section}>
+
+      {/* Category name + View All */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        <TouchableOpacity>
-          <Text style={styles.viewAll}>View All  →</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('CategoryProducts', { categoryId, categoryName: title })}>
+          <Text style={styles.viewAll}>View All →</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity activeOpacity={0.9} style={styles.stripBannerWrap}>
-        <Image source={banner} style={styles.stripBannerImage} resizeMode="cover" />
-      </TouchableOpacity>
+
+      {/* ✅ Banner — only shown if a real image was uploaded for this category */}
+      {hasRealImage && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.stripBannerWrap}
+          onPress={() => navigation.navigate('CategoryProducts', { categoryId, categoryName: title })}
+        >
+          <Image source={{ uri: imageUri }} style={styles.stripBannerImage} resizeMode="cover" />
+        </TouchableOpacity>
+      )}
+
+      {/* Products */}
       {loading
         ? <ActivityIndicator color={PRIMARY} style={{ marginLeft: 20 }} />
         : <View style={styles.grid}>
@@ -120,24 +128,39 @@ const CategoryStrip: React.FC<StripProps> = ({ categoryId, title, banner, onPres
   );
 };
 
-export const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [search, setSearch]                     = useState('');
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [popularProducts,  setPopularProducts]  = useState<Product[]>([]);
-  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
-  const [popularLoading,   setPopularLoading]   = useState(false);
-  const [categoryLoading,  setCategoryLoading]  = useState(false);
-  const [popularError,     setPopularError]     = useState<string | null>(null);
-  const [categoryError,    setCategoryError]    = useState<string | null>(null);
+// ─── HomeScreen ───────────────────────────────────────────────────────────────
 
-  const user      = useAuthStore(s => s.user);
-  const cartItems = useProductStore(s => s.cartItems);
-  const fetchCart = useProductStore(s => s.fetchCart);
-  const cartQty   = cartItems.length;
+export const HomeScreen: React.FC<Props> = (props) => {
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [search,            setSearch]           = useState('');
+  const [filteredProducts,  setFilteredProducts] = useState<Product[]>([]);
+  const [popularProducts,   setPopularProducts]  = useState<Product[]>([]);
+  const [categoryProducts,  setCategoryProducts] = useState<Product[]>([]);
+  const [popularLoading,    setPopularLoading]   = useState(false);
+  const [categoryLoading,   setCategoryLoading]  = useState(false);
+  const [popularError,      setPopularError]     = useState<string | null>(null);
+  const [categoryError,     setCategoryError]    = useState<string | null>(null);
+  const [apiCategories,     setApiCategories]    = useState<Category[]>([]);
+
+  const user        = useAuthStore(s => s.user);
+  const cartItems   = useProductStore(s => s.cartItems);
+  const fetchCart   = useProductStore(s => s.fetchCart);
+  const cartQty     = cartItems.length;
+  const unreadCount = useNotificationStore(s => s.unreadCount);
+  const fetchNotifications = useNotificationStore(s => s.fetch);
 
   useEffect(() => { fetchCart(); }, []);
+  useEffect(() => { fetchNotifications(); }, []);
+console.log('productService =', productService);
+  // Load categories
+  useEffect(() => {
+    productService.getCategories()
+      .then(cats => setApiCategories(cats))
+      .catch(() => {});
+  }, []);
 
+  // Load popular / best selling
   useEffect(() => {
     let cancelled = false;
     setPopularLoading(true);
@@ -149,25 +172,23 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return () => { cancelled = true; };
   }, []);
 
+  // Load products for selected category tab
   useEffect(() => {
     let cancelled = false;
     setCategoryLoading(true);
     setCategoryError(null);
-    productService.listProducts({ limit: 100 })
-      .then(res => {
-        if (cancelled) return;
-        const filtered = selectedCategory === 'all'
-          ? res.data
-          : res.data.filter(p =>
-              p.category?.toLowerCase()?.trim() === selectedCategory?.toLowerCase()?.trim()
-            );
-        setCategoryProducts(filtered);
-      })
+    // ✅ Pass categoryId to backend — no fetching 100+ and filtering client-side
+    productService.listProducts({
+      categoryId: selectedCategory === 'all' ? undefined : selectedCategory,
+      limit: 20,
+    })
+      .then(res => { if (!cancelled) setCategoryProducts(res.data); })
       .catch(err => { if (!cancelled) setCategoryError(err.message); })
       .finally(() => { if (!cancelled) setCategoryLoading(false); });
     return () => { cancelled = true; };
   }, [selectedCategory]);
 
+  // Search filter
   useEffect(() => {
     const pool = selectedCategory === 'all' ? popularProducts : categoryProducts;
     if (!search.trim()) { setFilteredProducts(pool); return; }
@@ -178,7 +199,8 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleProductPress = useCallback(
     (product: Product) => navigation.navigate('ProductDetail', { productId: product.id }),
-    [navigation],
+    [],
+    
   );
 
   const renderGrid = (products: Product[], loading: boolean, error: string | null) => {
@@ -201,7 +223,12 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  const currentLabel = STATIC_CATEGORIES.find(c => c.id === selectedCategory)?.name ?? 'Products';
+  const currentLabel =
+    apiCategories.find(c => c.id === selectedCategory)?.name ??
+    STATIC_CATEGORIES.find(c => c.id === selectedCategory)?.name ??
+    'Products';
+
+    console.log('productService =', productService);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -232,12 +259,17 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
           <View style={styles.iconGroup}>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => (navigation as any).navigate('Notifications')}>
               <IconBell color="#1a1a1a" size={22} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.iconBtn}
-              onPress={() => (navigation as any).navigate('Cart')}
+              onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Cart' })}
             >
               <IconCart color="#1a1a1a" size={22} />
               {cartQty > 0 && (
@@ -275,6 +307,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.changeBtn}>Change</Text>
         </TouchableOpacity>
 
+        {/* ── Search results ── */}
         {search.trim() ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -294,20 +327,27 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           <>
+            {/* ── Banner carousel ── */}
             <View style={styles.section}>
               <BannerCarousel />
             </View>
 
+            {/* ── Category tabs ── */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Categories</Text>
-                <TouchableOpacity>
-                  <Text style={styles.viewAll}>View All  →</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('CategoryProducts', { categoryId: 'all', categoryName: 'All Products' })}>
+                  <Text style={styles.viewAll}>View All →</Text>
                 </TouchableOpacity>
               </View>
-              <CategoryList selected={selectedCategory} onSelect={setSelectedCategory} />
+              <CategoryList
+                selected={selectedCategory}
+                onSelect={setSelectedCategory}
+                categories={apiCategories}
+              />
             </View>
 
+            {/* ── Products for selected category tab ── */}
             <View style={[styles.section, { paddingBottom: 16 }]}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{currentLabel}</Text>
@@ -315,15 +355,20 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {renderGrid(categoryProducts, categoryLoading, categoryError)}
             </View>
 
+            {/* ── Promo banner ── */}
             <View style={styles.section}>
               <TouchableOpacity activeOpacity={0.9} style={styles.promoBannerWrap}>
                 <Image source={banner2} style={styles.promoBannerImage} resizeMode="cover" />
               </TouchableOpacity>
             </View>
 
+            {/* ── Best Selling ── */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Best Selling</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('CategoryProducts', { categoryId: 'popular', categoryName: 'Best Selling' })}>
+                  <Text style={styles.viewAll}>View All →</Text>
+                </TouchableOpacity>
               </View>
               {popularLoading
                 ? <ActivityIndicator color={PRIMARY} style={{ marginLeft: 20 }} />
@@ -339,29 +384,31 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
               }
             </View>
 
-            {STATIC_CATEGORIES.filter(c => c.id !== 'all').map(cat => (
-              <CategoryStrip
-                key={cat.id}
-                categoryId={cat.id}
-                title={cat.name}
-                banner={CATEGORY_BANNERS[cat.id]}
-                onPress={handleProductPress}
-              />
-            ))}
+            {/* ── Per-category strips ── */}
+            {(apiCategories.length > 0 ? apiCategories : STATIC_CATEGORIES)
+              .filter(cat => cat.id !== 'all')
+              .map(cat => (
+                <CategoryStrip
+                  key={`strip-${cat.id}`}
+                  categoryId={cat.id}
+                  title={cat.name}
+                  // ✅ banner is a distinct field from the category's circular icon (`image`).
+                  // If the admin hasn't uploaded a banner, this is undefined and the strip
+                  // renders with no banner — name + products only.
+                  imageUri={cat.banner}
+                  onPress={handleProductPress}
+                />
+              ))}
           </>
         )}
-
-        {/* <View style={[styles.section, { marginBottom: 8 }]}>
-          <TouchableOpacity activeOpacity={0.9} style={styles.footerBannerWrap}>
-            <Image source={banner1} style={styles.footerBannerImage} resizeMode="cover" />
-          </TouchableOpacity>
-        </View> */}
 
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safe:          { flex: 1, backgroundColor: '#fff' },
@@ -378,10 +425,10 @@ const styles = StyleSheet.create({
 
   iconGroup: { flexDirection: 'row', gap: 8 },
   iconBtn: {
-    width: 44, height: 44,
-    borderRadius: 22,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#F5F5F5',
     alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
   },
   badge: {
     position: 'absolute', top: 4, right: 4,
@@ -390,13 +437,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  badgeText:      { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
+  badgeText: { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
 
   searchRow: { paddingHorizontal: 20, marginTop: 8, marginBottom: 4 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    backgroundColor: '#F5F5F5', borderRadius: 8,
     paddingHorizontal: 16, height: 48,
   },
   searchInput: { flex: 1, fontSize: 14, color: '#1a1a1a', fontFamily: FontFamily.regular },
@@ -412,17 +458,9 @@ const styles = StyleSheet.create({
   viewAll:       { fontSize: 13, fontWeight: '600', color: PRIMARY, fontFamily: FontFamily.bold },
 
   grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    columnGap: 8,
-    rowGap: 8,
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 16, columnGap: 8, rowGap: 8,
   },
-
-  hScrollContent: { paddingHorizontal: 20, gap: 12 },
-
-  bannerWrap:  { marginHorizontal: 20, borderRadius: 8, overflow: 'hidden', elevation: 0 },
-  bannerImage: { width: '100%', height: 120 },
 
   centeredMsg: { paddingHorizontal: 20, paddingVertical: 32, alignItems: 'center' },
   emptyText:   { color: '#7A7A7A', textAlign: 'center', fontSize: 14, fontFamily: FontFamily.regular },
@@ -434,6 +472,9 @@ const styles = StyleSheet.create({
   stripBannerWrap:  { marginHorizontal: 16, marginBottom: 14, borderRadius: 8, overflow: 'hidden' },
   stripBannerImage: { width: '100%', height: 230 },
 
-  footerBannerWrap:  { marginHorizontal: 0, borderRadius: 8, overflow: 'hidden' },
-  footerBannerImage: { width: '100%', height: 180 },
+  hScrollContent:   { paddingHorizontal: 20, gap: 12 },
+  bannerWrap:       { marginHorizontal: 20, borderRadius: 8, overflow: 'hidden', elevation: 0 },
+  bannerImage:      { width: '100%', height: 120 },
+  footerBannerWrap: { marginHorizontal: 0, borderRadius: 8, overflow: 'hidden' },
+  footerBannerImage:{ width: '100%', height: 180 },
 });
