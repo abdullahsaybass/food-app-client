@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -17,7 +16,8 @@ import type { RootStackParamList } from '../../../app/navigation/navigation.type
 import { API } from '@/src/app/lib/api';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = Math.floor((width - 32 - 20) / 3);
+const GRID_GAP = 10;
+const CARD_WIDTH = Math.floor((width - 16 * 2 - GRID_GAP * 2) / 3);
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -91,7 +91,6 @@ const IconGlobe = () => (
   </Svg>
 );
 
-// ✅ Truck icon for Free Delivery badge
 const IconTruck = () => (
   <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
     <Path d="M1 3h15v13H1zM16 8h4l3 3v5h-7V8z"
@@ -148,15 +147,6 @@ const OutsideMaldivesBanner: React.FC<{ onDismiss: () => void }> = ({ onDismiss 
   );
 };
 
-// ─── Free Delivery Badge ──────────────────────────────────────────────────────
-
-const FreeDeliveryBadge: React.FC = () => (
-  <View style={styles.freeDeliveryBadge}>
-    <IconTruck />
-    <Text style={styles.freeDeliveryText}>Free Delivery</Text>
-  </View>
-);
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const CategoriesScreen: React.FC = () => {
@@ -170,8 +160,8 @@ export const CategoriesScreen: React.FC = () => {
 
   const cartItems = useProductStore(s => s.cartItems);
   const cartQty   = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-   console.log('CATEGORIES SCREEN LOADED — productService:', productService); // 👈 add here
-   console.log('API instance:', API);
+  console.log('CATEGORIES SCREEN LOADED — productService:', productService);
+  console.log('API instance:', API);
 
   useEffect(() => {
     let cancelled = false;
@@ -259,36 +249,16 @@ export const CategoriesScreen: React.FC = () => {
         {/* ── Hero Banner ── */}
         {!search.trim() && (
           <View style={styles.heroBanner}>
+            {/* ✅ FIX 2: text block aligned to top with alignSelf + justifyContent: flex-start */}
             <View style={styles.heroTextBlock}>
               <Text style={styles.heroTitle}>Shop by{'\n'}Category</Text>
               <Text style={styles.heroSub}>Find everything you need,{'\n'}all in one place.</Text>
             </View>
             <Image
-              source={require('@/assets/images/banner1.png')}
+              source={require('@/assets/images/catergory.png')}
               style={styles.heroImage}
               resizeMode="contain"
             />
-          </View>
-        )}
-
-        {/* ── Free Delivery Banner ── */}
-        {!search.trim() && (
-          <View style={styles.freeDeliveryBanner}>
-            <View style={styles.freeDeliveryBannerLeft}>
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Path d="M1 3h15v13H1z" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-                <Path d="M16 8h4l3 3v5h-7V8z" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-                <Circle cx={5.5}  cy={18.5} r={2.5} stroke="#fff" strokeWidth={1.8} />
-                <Circle cx={18.5} cy={18.5} r={2.5} stroke="#fff" strokeWidth={1.8} />
-              </Svg>
-              <View>
-                <Text style={styles.freeDeliveryBannerTitle}>Free Delivery</Text>
-                <Text style={styles.freeDeliveryBannerSub}>On all orders across Maldives</Text>
-              </View>
-            </View>
-            <View style={styles.freeDeliveryPill}>
-              <Text style={styles.freeDeliveryPillText}>Always Free</Text>
-            </View>
           </View>
         )}
 
@@ -310,11 +280,8 @@ export const CategoriesScreen: React.FC = () => {
                     activeOpacity={0.8}
                     onPress={() => handleCategoryPress(cat)}
                   >
-                    {/* Category image */}
-                    <View style={[
-                      styles.imageBox,
-                      cat.color ? { backgroundColor: cat.color + '18' } : {},
-                    ]}>
+                    {/* ✅ FIX 1: no background color on imageBox, image fills full box */}
+                    <View style={styles.imageBox}>
                       {cat.image ? (
                         <Image
                           source={{ uri: cat.image as string }}
@@ -327,9 +294,6 @@ export const CategoriesScreen: React.FC = () => {
                     </View>
 
                     <Text style={styles.catName} numberOfLines={2}>{cat.name}</Text>
-
-                    {/* ✅ Free Delivery badge instead of "100+ products" */}
-                    <FreeDeliveryBadge />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -429,23 +393,91 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontFamily: FontFamily.regular, fontSize: 14, color: '#1a1a1a' },
 
-  // Hero banner
+  // ✅ FIX 2: hero banner — alignItems: 'flex-start' so text sits at top
   heroBanner: {
     marginHorizontal: 16, marginBottom: 14,
     borderRadius: 16, backgroundColor: '#EFF7EF',
-    flexDirection: 'row', alignItems: 'flex-end',
-    overflow: 'hidden', minHeight: 140,
-    paddingLeft: 20, paddingVertical: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-start',   // ← was 'flex-end', text now pins to top
+    overflow: 'hidden', minHeight: 160,
+    paddingLeft: 20, paddingTop: 20, paddingBottom: 0,
   },
-  heroTextBlock: { flex: 1, justifyContent: 'center' },
+  heroTextBlock: {
+    flex: 1,
+    justifyContent: 'flex-start',   // ← text starts from top of its container
+    paddingTop: 0,
+  },
   heroTitle: {
     fontFamily: FontFamily.extraBold, fontSize: 22,
     color: '#1a1a1a', lineHeight: 28, marginBottom: 6,
   },
   heroSub: { fontFamily: FontFamily.regular, fontSize: 12, color: '#555', lineHeight: 18 },
-  heroImage: { width: 160, height: 140 },
+  heroImage: { width: 160, height: 160, alignSelf: 'flex-end' },
 
-  // ✅ Free Delivery full-width banner (between hero and grid)
+  // Grid
+  section: { paddingHorizontal: 16 },
+  grid:    { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
+
+  card: {
+    width: CARD_WIDTH, borderRadius: 12,
+    borderWidth: 1, borderColor: '#EFEFEF',
+    padding: 10, alignItems: 'center',   // ✅ centers image + text horizontally
+    backgroundColor: '#fff',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
+  },
+
+  // ✅ FIX 1: removed backgroundColor — image renders without any colored backing
+  imageBox: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+    // no backgroundColor here
+  },
+
+  // ✅ FIX 1: image now fills full imageBox (was 85%) for larger appearance
+  catImage: { width: '100%', height: '100%' },
+
+  fallbackEmoji: { fontSize: 32 },
+  catName: {
+    fontFamily: FontFamily.bold, fontSize: 12,
+    color: '#1a1a1a', lineHeight: 16, marginBottom: 4, textAlign: 'center',
+  },
+
+  // Free Delivery badge styles kept in case needed elsewhere
+  freeDeliveryBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               3,
+    backgroundColor:   Colors.primary + '15',
+    borderRadius:      6,
+    paddingHorizontal: 6,
+    paddingVertical:   3,
+  },
+  freeDeliveryText: {
+    fontFamily: FontFamily.bold,
+    fontSize:   9,
+    color:      Colors.primary,
+  },
+
+  centerMsg: { flex: 1, alignItems: 'center', paddingVertical: 40 },
+  errorText: { fontFamily: FontFamily.regular, color: '#9CA3AF', fontSize: 14 },
+
+  // Explore all row
+  exploreRow: {
+    marginHorizontal: 16, marginTop: 20,
+    borderRadius: 12, borderWidth: 1, borderColor: '#EFEFEF',
+    paddingHorizontal: 16, paddingVertical: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff',
+  },
+  exploreText: { flex: 1, fontFamily: FontFamily.semiBold, fontSize: 14, color: '#1a1a1a' },
+
+  // Full-width free delivery banner styles (kept for reference)
   freeDeliveryBanner: {
     marginHorizontal:  16,
     marginBottom:      16,
@@ -481,57 +513,4 @@ const styles = StyleSheet.create({
   freeDeliveryPillText: {
     fontFamily: FontFamily.bold, fontSize: 11, color: '#fff',
   },
-
-  // Grid
-  section: { paddingHorizontal: 16 },
-  grid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-
-  card: {
-    width: CARD_WIDTH, borderRadius: 12,
-    borderWidth: 1, borderColor: '#EFEFEF',
-    padding: 10, alignItems: 'flex-start',
-    backgroundColor: '#fff',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
-  },
-  imageBox: {
-    width: '100%', aspectRatio: 1, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 8, overflow: 'hidden', backgroundColor: '#F9F9F9',
-  },
-  catImage:      { width: '85%', height: '85%' },
-  fallbackEmoji: { fontSize: 32 },
-  catName: {
-    fontFamily: FontFamily.bold, fontSize: 12,
-    color: '#1a1a1a', lineHeight: 16, marginBottom: 4,
-  },
-
-  // ✅ Free Delivery badge on each card
-  freeDeliveryBadge: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               3,
-    backgroundColor:   Colors.primary + '15',
-    borderRadius:      6,
-    paddingHorizontal: 6,
-    paddingVertical:   3,
-  },
-  freeDeliveryText: {
-    fontFamily: FontFamily.bold,
-    fontSize:   9,
-    color:      Colors.primary,
-  },
-
-  centerMsg: { flex: 1, alignItems: 'center', paddingVertical: 40 },
-  errorText: { fontFamily: FontFamily.regular, color: '#9CA3AF', fontSize: 14 },
-
-  // Explore all row
-  exploreRow: {
-    marginHorizontal: 16, marginTop: 20,
-    borderRadius: 12, borderWidth: 1, borderColor: '#EFEFEF',
-    paddingHorizontal: 16, paddingVertical: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff',
-  },
-  exploreText: { flex: 1, fontFamily: FontFamily.semiBold, fontSize: 14, color: '#1a1a1a' },
 });

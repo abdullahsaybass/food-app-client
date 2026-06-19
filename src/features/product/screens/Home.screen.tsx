@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Image, StatusBar,
-  ActivityIndicator, TextInput,
+  ActivityIndicator, TextInput, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -26,6 +26,12 @@ import Homefooter from '../components/Home.footer';
 type Props = NativeStackScreenProps<RootStackParamList, 'MainTabs'>;
 
 const PRIMARY = '#2E7D32';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const STRIP_H      = 16;  // unified horizontal margin — matches banner/grid/header
+const STRIP_GAP    = 8;   // gap between cards in the slider
+const STRIP_COLUMNS_VISIBLE = 3; // 3 cards fill exactly the banner width (SCREEN_WIDTH - 16*2)
+const STRIP_CARD_W = (SCREEN_WIDTH - STRIP_H * 2 - STRIP_GAP * (STRIP_COLUMNS_VISIBLE - 1)) / STRIP_COLUMNS_VISIBLE;
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +68,14 @@ const IconLocation = ({ color = '#2E7D32', size = 16 }: { color?: string; size?:
   </Svg>
 );
 
+const IconPerson = ({ color = '#fff', size = 22 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx={12} cy={7} r={4} stroke={color} strokeWidth="1.8" />
+  </Svg>
+);
+
 // ─── CategoryStrip ────────────────────────────────────────────────────────────
 
 interface StripProps {
@@ -89,10 +103,6 @@ const CategoryStrip: React.FC<StripProps> = ({ categoryId, title, imageUri, onPr
 
   if (!loading && products.length === 0) return null;
 
-  // ✅ Banner only renders if the category actually has a banner uploaded.
-  // imageUri is undefined whenever no banner exists — no fallback substitution.
-  const hasRealImage = !!imageUri && imageUri.trim() !== '';
-
   return (
     <View style={styles.section}>
 
@@ -104,25 +114,19 @@ const CategoryStrip: React.FC<StripProps> = ({ categoryId, title, imageUri, onPr
         </TouchableOpacity>
       </View>
 
-      {/* ✅ Banner — only shown if a real image was uploaded for this category */}
-      {hasRealImage && (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.stripBannerWrap}
-          onPress={() => navigation.navigate('CategoryProducts', { categoryId, categoryName: title })}
-        >
-          <Image source={{ uri: imageUri }} style={styles.stripBannerImage} resizeMode="cover" />
-        </TouchableOpacity>
-      )}
-
-      {/* Products */}
+      {/* Products — horizontal slider constrained to banner width */}
       {loading
-        ? <ActivityIndicator color={PRIMARY} style={{ marginLeft: 20 }} />
-        : <View style={styles.grid}>
-            {products.map(p => (
-              <ProductCard key={p.id} product={p} onPress={onPress} />
+        ? <ActivityIndicator color={PRIMARY} style={{ marginLeft: STRIP_H }} />
+        : <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hGrid}
+            style={{ marginHorizontal: STRIP_H }}
+          >
+            {products.slice(0, 5).map(p => (
+              <ProductCard key={p.id} product={p} onPress={onPress} style={{ width: STRIP_CARD_W }} />
             ))}
-          </View>
+          </ScrollView>
       }
     </View>
   );
@@ -160,12 +164,12 @@ console.log('productService =', productService);
       .catch(() => {});
   }, []);
 
-  // Load popular / best selling
+  // Load popular / best selling — fetch a larger pool, then cap to 2 per category client-side
   useEffect(() => {
     let cancelled = false;
     setPopularLoading(true);
     setPopularError(null);
-    productService.listProducts({ popular: true, limit: 8 })
+    productService.listProducts({ popular: true, limit: 50 })
       .then(res => { if (!cancelled) setPopularProducts(res.data); })
       .catch(err => { if (!cancelled) setPopularError(err.message); })
       .finally(() => { if (!cancelled) setPopularLoading(false); });
@@ -203,30 +207,17 @@ console.log('productService =', productService);
     
   );
 
-  const renderGrid = (products: Product[], loading: boolean, error: string | null) => {
-    if (loading) return (
-      <View style={styles.centeredMsg}>
-        <ActivityIndicator color={PRIMARY} />
-      </View>
-    );
-    if (error || !products.length) return (
-      <View style={styles.centeredMsg}>
-        <Text style={styles.emptyText}>{error ?? 'No products found'}</Text>
-      </View>
-    );
-    return (
-      <View style={styles.grid}>
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} onPress={handleProductPress} />
-        ))}
-      </View>
-    );
-  };
-
-  const currentLabel =
-    apiCategories.find(c => c.id === selectedCategory)?.name ??
-    STATIC_CATEGORIES.find(c => c.id === selectedCategory)?.name ??
-    'Products';
+  // ✅ Best Selling: max 2 products per category, preserving the order they came in
+  const bestSellingProducts = React.useMemo(() => {
+    const seenCount: Record<string, number> = {};
+    const result: Product[] = [];
+    for (const p of popularProducts) {
+      const key = p.categoryId ?? 'uncategorized';
+      seenCount[key] = (seenCount[key] ?? 0) + 1;
+      if (seenCount[key] <= 2) result.push(p);
+    }
+    return result;
+  }, [popularProducts]);
 
     console.log('productService =', productService);
 
@@ -247,14 +238,18 @@ console.log('productService =', productService);
                 <Image source={{ uri: user.profilePic.url }} style={styles.avatarImg} />
               ) : (
                 <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitial}>
-                    {user?.name?.charAt(0).toUpperCase() ?? '?'}
-                  </Text>
+                  {user?.name ? (
+                    <Text style={styles.avatarInitial}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </Text>
+                  ) : (
+                    <IconPerson color="#fff" size={22} />
+                  )}
                 </View>
               )}
             </View>
             <View>
-              <Text style={styles.greeting}>Hello, {user?.name ?? 'Guest'} 👋</Text>
+              <Text style={styles.greeting}>{user?.name ? `Hello, ${user.name} 👋` : 'Welcome 👋'}</Text>
               <Text style={styles.welcomeText}>Welcome back!</Text>
             </View>
           </View>
@@ -347,21 +342,6 @@ console.log('productService =', productService);
               />
             </View>
 
-            {/* ── Products for selected category tab ── */}
-            <View style={[styles.section, { paddingBottom: 16 }]}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>{currentLabel}</Text>
-              </View>
-              {renderGrid(categoryProducts, categoryLoading, categoryError)}
-            </View>
-
-            {/* ── Promo banner ── */}
-            <View style={styles.section}>
-              <TouchableOpacity activeOpacity={0.9} style={styles.promoBannerWrap}>
-                <Image source={banner2} style={styles.promoBannerImage} resizeMode="cover" />
-              </TouchableOpacity>
-            </View>
-
             {/* ── Best Selling ── */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -377,7 +357,7 @@ console.log('productService =', productService);
                       <Text style={styles.emptyText}>{popularError}</Text>
                     </View>
                   : <View style={styles.grid}>
-                      {popularProducts.map(p => (
+                      {bestSellingProducts.map(p => (
                         <ProductCard key={p.id} product={p} onPress={handleProductPress} />
                       ))}
                     </View>
@@ -399,6 +379,13 @@ console.log('productService =', productService);
                   onPress={handleProductPress}
                 />
               ))}
+
+            {/* ── Promo banner (Free Delivery) — moved to last ── */}
+            <View style={styles.section}>
+              <TouchableOpacity activeOpacity={0.9} style={styles.promoBannerWrap}>
+                <Image source={banner2} style={styles.promoBannerImage} resizeMode="cover" />
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -414,7 +401,7 @@ const styles = StyleSheet.create({
   safe:          { flex: 1, backgroundColor: '#fff' },
   scrollContent: { paddingTop: 8 },
 
-  topBar:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 8 },
+  topBar:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
   userRow:        { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatarWrap:     { width: 46, height: 46, borderRadius: 23, overflow: 'hidden', backgroundColor: '#eee' },
   avatarImg:      { width: '100%', height: '100%' },
@@ -439,7 +426,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: FontFamily.bold },
 
-  searchRow: { paddingHorizontal: 20, marginTop: 8, marginBottom: 4 },
+  searchRow: { paddingHorizontal: 16, marginTop: 8, marginBottom: 4 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#F5F5F5', borderRadius: 8,
@@ -447,13 +434,13 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: '#1a1a1a', fontFamily: FontFamily.regular },
 
-  deliverRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10 },
+  deliverRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
   deliverLabel:    { fontSize: 13, color: '#555', marginLeft: 6, fontFamily: FontFamily.regular },
   deliverLocation: { fontSize: 13, fontWeight: '700', color: PRIMARY, fontFamily: FontFamily.bold },
   changeBtn:       { fontSize: 13, fontWeight: '600', color: PRIMARY, fontFamily: FontFamily.bold },
 
-  section:       { marginTop: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 14 },
+  section:       { marginTop: 20, width: '100%', overflow: 'hidden' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: STRIP_H, marginBottom: 14 },
   sectionTitle:  { fontSize: 18, fontWeight: '800', color: '#1a1a1a', fontFamily: FontFamily.bold },
   viewAll:       { fontSize: 13, fontWeight: '600', color: PRIMARY, fontFamily: FontFamily.bold },
 
@@ -462,18 +449,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, columnGap: 8, rowGap: 8,
   },
 
-  centeredMsg: { paddingHorizontal: 20, paddingVertical: 32, alignItems: 'center' },
+  hGrid: {
+    flexDirection: 'row',
+    gap: STRIP_GAP,
+  },
+
+  centeredMsg: { paddingHorizontal: 16, paddingVertical: 32, alignItems: 'center' },
   emptyText:   { color: '#7A7A7A', textAlign: 'center', fontSize: 14, fontFamily: FontFamily.regular },
   emptyTitle:  { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 6, fontFamily: FontFamily.bold },
 
   promoBannerWrap:  { alignSelf: 'center', width: '100%', borderRadius: 8, overflow: 'hidden' },
   promoBannerImage: { width: '100%', height: 200 },
 
-  stripBannerWrap:  { marginHorizontal: 16, marginBottom: 14, borderRadius: 8, overflow: 'hidden' },
-  stripBannerImage: { width: '100%', height: 230 },
+  stripBannerWrap:  { marginHorizontal: STRIP_H, marginBottom: 14, borderRadius: 16, overflow: 'hidden' },
+  stripBannerImage: { width: '100%', height: 185 },
 
-  hScrollContent:   { paddingHorizontal: 20, gap: 12 },
-  bannerWrap:       { marginHorizontal: 20, borderRadius: 8, overflow: 'hidden', elevation: 0 },
+  hScrollContent:   { paddingHorizontal: 16, gap: 12 },
+  bannerWrap:       { marginHorizontal: 16, borderRadius: 8, overflow: 'hidden', elevation: 0 },
   bannerImage:      { width: '100%', height: 120 },
   footerBannerWrap: { marginHorizontal: 0, borderRadius: 8, overflow: 'hidden' },
   footerBannerImage:{ width: '100%', height: 180 },

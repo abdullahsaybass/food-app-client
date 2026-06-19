@@ -6,18 +6,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, StatusBar,
+  ActivityIndicator, StatusBar, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Colors } from '../../../theme';
+import { Colors, FontFamily } from '../../../theme';
 import { ProductCard } from '../components/ProductCard.component';
 import { productService } from '../services/product.service';
 import type { Product } from '../types/product.types';
 import type { RootStackParamList } from '../../../app/navigation/navigation.types';
+
+const { width } = Dimensions.get('window');
+
+// 3 columns: 16px padding each side + 8px gap between 3 columns (2 gaps)
+const NUM_COLUMNS    = 3;
+const H_PADDING      = 16;
+const COL_GAP        = 8;
+const CARD_WIDTH     = (width - H_PADDING * 2 - COL_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -67,8 +75,13 @@ export const CategoryProductsScreen: React.FC<Props> = ({ route }) => {
     navigation.navigate('ProductDetail', { productId: product.id });
   }, [navigation]);
 
+  // Pass explicit width so ProductCard renders at correct 3-col size
   const renderProduct = useCallback(({ item }: { item: Product }) => (
-    <ProductCard product={item} onPress={handleProductPress} />
+    <ProductCard
+      product={item}
+      onPress={handleProductPress}
+      style={{ width: CARD_WIDTH }}
+    />
   ), [handleProductPress]);
 
   const renderEmpty = () => {
@@ -90,6 +103,7 @@ export const CategoryProductsScreen: React.FC<Props> = ({ route }) => {
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
           <IconBack />
         </TouchableOpacity>
+        {/* ✅ larger, bolder title using FontFamily */}
         <Text style={styles.headerTitle} numberOfLines={1}>{categoryName}</Text>
         <TouchableOpacity
           style={styles.iconBtn}
@@ -114,7 +128,7 @@ export const CategoryProductsScreen: React.FC<Props> = ({ route }) => {
           data={products}
           keyExtractor={item => item.id}
           renderItem={renderProduct}
-          numColumns={2}
+          numColumns={NUM_COLUMNS}         // ✅ 3 columns
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -144,13 +158,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
+
+  // ✅ bigger title: 22px extraBold via FontFamily token
   headerTitle: {
-    flex:       1,
-    fontSize:   18,
-    fontWeight: '800',
-    color:      '#1a1a1a',
+    flex:             1,
+    fontSize:         22,
+    fontFamily:       FontFamily.extraBold,
+    color:            '#1a1a1a',
     marginHorizontal: 12,
+    textAlign:        'center',   // ✅ centered between the two icon buttons
   },
+
   iconBtn: {
     width:           40,
     height:          40,
@@ -161,24 +179,30 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: H_PADDING,
     paddingTop:        12,
     paddingBottom:     120,
   },
-  row: { gap: 8, marginBottom: 8 },
+
+  // ✅ gap matches COL_GAP constant; marginBottom gives row spacing
+  row: {
+    gap:          COL_GAP,
+    marginBottom: COL_GAP,
+  },
 
   resultCount: {
     fontSize:     13,
+    fontFamily:   FontFamily.regular,
     color:        '#9CA3AF',
     marginBottom: 12,
   },
 
   centerMsg: {
-    flex:           1,
-    alignItems:     'center',
-    justifyContent: 'center',
+    flex:            1,
+    alignItems:      'center',
+    justifyContent:  'center',
     paddingVertical: 60,
   },
-  emptyTitle:    { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 6 },
-  emptySubtitle: { fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
+  emptyTitle:    { fontSize: 16, fontFamily: FontFamily.bold,    color: '#1a1a1a', marginBottom: 6 },
+  emptySubtitle: { fontSize: 14, fontFamily: FontFamily.regular, color: '#9CA3AF', textAlign: 'center' },
 });

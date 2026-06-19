@@ -65,6 +65,7 @@ export const CategoryList: React.FC<Props> = ({ selected, onSelect, categories }
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={{ width: '100%' }}
       contentContainerStyle={styles.container}
     >
       {items.map((cat) => {

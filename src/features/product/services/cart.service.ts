@@ -1,7 +1,7 @@
 // product/services/cart.service.ts
 
 import { API } from '../../../app/lib/api';
-import type { CartItem, Product, ProductVariant } from '../types/product.types';
+import type { Product, ProductVariant, Category, CartItem } from '../types/product.types';
 
 export interface CartResponse {
   items: CartItem[];

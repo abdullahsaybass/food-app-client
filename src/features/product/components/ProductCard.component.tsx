@@ -11,8 +11,11 @@ import type { Product } from '../types/product.types';
 import { FontFamily } from '../../../theme/typography';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH  = Math.floor((width - 48) / 3);
-const HCARD_WIDTH = (width - 40) / 2.45;
+const GRID_H_PADDING = 16;
+const GRID_GAP       = 8;
+const GRID_COLUMNS   = 3;
+const CARD_WIDTH  = (width - GRID_H_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+const HCARD_WIDTH = (width - 16 * 2 - 12) / 2.45;
 
 function useCartActions(product: Product) {
   const addToCart      = useProductStore(s => s.addToCart);
@@ -50,7 +53,7 @@ function useCartActions(product: Product) {
     else updateQuantity(product.id, displayVariant.unit, quantity - 1);
   }, [product, displayVariant, quantity, updateQuantity, removeFromCart]);
 
-  return { discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease };
+  return { displayVariant, discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease };
 }
 
 // ── Grid Card ─────────────────────────────────────────────────────────────────
@@ -61,41 +64,43 @@ interface Props {
 }
 
 export const ProductCard: React.FC<Props> = ({ product, onPress, style }) => {
-  const { discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease } =
+  const { displayVariant, discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease } =
     useCartActions(product);
 
   return (
     <TouchableOpacity style={[s.card, style]} onPress={() => onPress(product)} activeOpacity={0.92}>
-      {product.discountPercentage > 0 && (
+      {displayVariant?.unit ? (
         <View style={s.discountBadge}>
-          <Text style={s.discountText}>-{product.discountPercentage}%</Text>
+          <Text style={s.discountText}>{displayVariant.unit}</Text>
         </View>
-      )}
+      ) : null}
 
       <View style={s.imageBox}>
-        <Image source={{ uri: product.image }} style={s.productImage} resizeMode="contain" />
+        <Image source={{ uri: product.image }} style={s.productImage} resizeMode="cover" />
       </View>
 
       <View style={s.info}>
-        <Text style={s.name} numberOfLines={2}>{product.name}</Text>
-        <Text style={s.price}>{formatPrice(discountedPrice)}</Text>
+        <Text style={s.name} numberOfLines={1} ellipsizeMode="tail">{product.name}</Text>
+        <Text style={s.price} numberOfLines={1}>{formatPrice(discountedPrice)}</Text>
       </View>
 
-      {inCart ? (
-        <View style={s.stepper}>
-          <TouchableOpacity style={s.minusBtn} onPress={handleDecrease} activeOpacity={0.7}>
-            <Text style={s.minusText}>−</Text>
+      <View style={s.actionZone}>
+        {inCart ? (
+          <View style={s.stepper}>
+            <TouchableOpacity style={s.minusBtn} onPress={handleDecrease} activeOpacity={0.7}>
+              <Text style={s.minusText}>−</Text>
+            </TouchableOpacity>
+            <Text style={s.stepCount}>{quantity}</Text>
+            <TouchableOpacity style={s.plusBtn} onPress={handleIncrease} activeOpacity={0.7}>
+              <Text style={s.plusText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.7} disabled={!product.inStock}>
+            <Text style={s.addText}>+</Text>
           </TouchableOpacity>
-          <Text style={s.stepCount}>{quantity}</Text>
-          <TouchableOpacity style={s.plusBtn} onPress={handleIncrease} activeOpacity={0.7}>
-            <Text style={s.plusText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={s.addBtn} onPress={handleAdd} activeOpacity={0.7} disabled={!product.inStock}>
-          <Text style={s.addText}>Add</Text>
-        </TouchableOpacity>
-      )}
+        )}
+      </View>
     </TouchableOpacity>
   );
 };
@@ -104,44 +109,47 @@ export const ProductCard: React.FC<Props> = ({ product, onPress, style }) => {
 interface HProps {
   product: Product;
   onPress: (product: Product) => void;
+  style?:  object;
 }
 
-export const ProductCardHorizontal: React.FC<HProps> = ({ product, onPress }) => {
-  const { discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease } =
+export const ProductCardHorizontal: React.FC<HProps> = ({ product, onPress, style }) => {
+  const { displayVariant, discountedPrice, quantity, inCart, handleAdd, handleIncrease, handleDecrease } =
     useCartActions(product);
 
   return (
-    <TouchableOpacity style={h.card} onPress={() => onPress(product)} activeOpacity={0.92}>
-      {product.discountPercentage > 0 && (
+    <TouchableOpacity style={[h.card, style]} onPress={() => onPress(product)} activeOpacity={0.92}>
+      {displayVariant?.unit ? (
         <View style={h.discountBadge}>
-          <Text style={h.discountText}>-{product.discountPercentage}%</Text>
+          <Text style={h.discountText}>{displayVariant.unit}</Text>
         </View>
-      )}
+      ) : null}
 
       <View style={h.imageBox}>
-        <Image source={{ uri: product.image }} style={h.productImage} resizeMode="contain" />
+        <Image source={{ uri: product.image }} style={h.productImage} resizeMode="cover" />
       </View>
 
       <View style={h.info}>
-        <Text style={h.name} numberOfLines={2}>{product.name}</Text>
-        <Text style={h.price}>{formatPrice(discountedPrice)}</Text>
+        <Text style={h.name} numberOfLines={1} ellipsizeMode="tail">{product.name}</Text>
+        <Text style={h.price} numberOfLines={1}>{formatPrice(discountedPrice)}</Text>
       </View>
 
-      {inCart ? (
-        <View style={h.stepper}>
-          <TouchableOpacity style={h.minusBtn} onPress={handleDecrease} activeOpacity={0.7}>
-            <Text style={h.minusText}>−</Text>
+      <View style={h.actionZone}>
+        {inCart ? (
+          <View style={h.stepper}>
+            <TouchableOpacity style={h.minusBtn} onPress={handleDecrease} activeOpacity={0.7}>
+              <Text style={h.minusText}>−</Text>
+            </TouchableOpacity>
+            <Text style={h.stepCount}>{quantity}</Text>
+            <TouchableOpacity style={h.plusBtn} onPress={handleIncrease} activeOpacity={0.7}>
+              <Text style={h.plusText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={h.addBtn} onPress={handleAdd} activeOpacity={0.7} disabled={!product.inStock}>
+            <Text style={h.addText}>+</Text>
           </TouchableOpacity>
-          <Text style={h.stepCount}>{quantity}</Text>
-          <TouchableOpacity style={h.plusBtn} onPress={handleIncrease} activeOpacity={0.7}>
-            <Text style={h.plusText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={h.addBtn} onPress={handleAdd} activeOpacity={0.7} disabled={!product.inStock}>
-          <Text style={h.addText}>Add</Text>
-        </TouchableOpacity>
-      )}
+        )}
+      </View>
     </TouchableOpacity>
   );
 };
@@ -152,14 +160,13 @@ const s = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: '#fff',
     borderRadius: 8,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
 
   discountBadge: {
     position: 'absolute', top: 6, left: 6, zIndex: 2,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1a1a1a',
     borderRadius: 4,
     paddingHorizontal: 5, paddingVertical: 2,
   },
@@ -168,45 +175,64 @@ const s = StyleSheet.create({
   imageBox: {
     height: 90,
     backgroundColor: '#F8F8F8',
-    alignItems: 'center', justifyContent: 'center',
-    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   productImage: { width: '100%', height: '100%' },
 
-  info: { paddingHorizontal: 6, paddingTop: 8, paddingBottom: 4, gap: 2 },
+  info: {
+    paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
 
   name: {
-    fontSize: 13,
+    fontSize: 15,
     color: '#1a1a1a',
-    lineHeight: 18,
+    lineHeight: 20,
+    height: 20,
+    width: '100%',
     fontFamily: FontFamily.bold,
   },
   price: {
     fontSize: 11,
-    color: '#E53935',
+    color: '#1a1a1a',
+    lineHeight: 14,
+    height: 14,
     fontFamily: FontFamily.extraBold,
   },
 
+  actionZone: {
+    height: 44,
+    paddingHorizontal: 6,
+    paddingBottom: 6,
+  },
+
   addBtn: {
-    margin: 6,
-    marginTop: 4,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#2E7D32',
-    paddingVertical: 5,
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#2E7D32',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: 'center',
   },
   addText: {
-    fontSize: 11,
-    color: '#2E7D32',
+    fontSize: 18,
+    color: '#fff',
     fontFamily: FontFamily.bold,
+    lineHeight: 22,
   },
 
   stepper: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    right: 6,
     flexDirection: 'row',
-    margin: 6,
-    marginTop: 4,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: '#2E7D32',
@@ -258,14 +284,13 @@ const h = StyleSheet.create({
     width: HCARD_WIDTH,
     backgroundColor: '#fff',
     borderRadius: 8,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
 
   discountBadge: {
     position: 'absolute', top: 8, left: 8, zIndex: 2,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1a1a1a',
     borderRadius: 5,
     paddingHorizontal: 6, paddingVertical: 2,
   },
@@ -274,45 +299,66 @@ const h = StyleSheet.create({
   imageBox: {
     height: 120,
     backgroundColor: '#F8F8F8',
-    alignItems: 'center', justifyContent: 'center',
-    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   productImage: { width: '100%', height: '100%' },
 
-  info: { paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4, gap: 4 },
+  info: {
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 4,
+    gap: 4,
+    overflow: 'hidden',
+  },
 
   name: {
     fontSize: 14,
     color: '#1a1a1a',
     lineHeight: 19,
+    height: 19,
+    width: '100%',
     fontFamily: FontFamily.bold,
   },
   price: {
     fontSize: 13,
-    color: '#E53935',
+    color: '#1a1a1a',
+    lineHeight: 16,
+    height: 16,
     fontFamily: FontFamily.extraBold,
   },
 
+  actionZone: {
+    height: 50,
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+  },
+
   addBtn: {
-    margin: 10,
-    marginTop: 4,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#2E7D32',
-    paddingVertical: 6,
+    position: 'absolute',
+    bottom: 8,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#2E7D32',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: 'center',
   },
   addText: {
-    fontSize: 13,
-    color: '#2E7D32',
+    fontSize: 20,
+    color: '#fff',
     fontFamily: FontFamily.bold,
+    lineHeight: 24,
   },
 
   stepper: {
+    position: 'absolute',
+    bottom: 8,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
-    margin: 10,
-    marginTop: 4,
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#2E7D32',

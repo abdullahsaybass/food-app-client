@@ -327,7 +327,7 @@
 //   footerLink: { ...Typography.bodyMedium, color: Colors.primary, fontWeight: '700' },
 // });
 
-import React, { useCallback, useReducer } from 'react';
+import React, { useCallback, useReducer, useState } from 'react';
 import {
   View,
   Text,
@@ -335,7 +335,8 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
-  Alert,
+  Modal,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -384,6 +385,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
 export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [state, dispatch] = useReducer(reducer, init);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // ← memoized handlers to prevent TextInput re-render flash
   const handleFullNameChange = useCallback((value: string) => {
@@ -454,8 +456,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         password: state.password,
       });
 
-      Alert.alert('Success', 'Registration successful! Please login.');
-      navigation.navigate('Login');
+      setShowSuccess(true);
 
     } catch (err: any) {
       const message: string =
@@ -584,6 +585,29 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
+
+      {/* ── Success Modal ── */}
+      <Modal visible={showSuccess} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalIcon}>✓</Text>
+            </View>
+            <Text style={styles.modalTitle}>You're in!</Text>
+            <Text style={styles.modalSub}>Your account has been created successfully.</Text>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                setShowSuccess(false);
+                navigation.navigate('Login');
+              }}
+            >
+              <Text style={styles.modalBtnText}>Go to Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -655,4 +679,69 @@ const styles = StyleSheet.create({
   },
   footerText: { ...Typography.bodyMedium, color: Colors.textSecondary },
   footerLink: { ...Typography.bodyMedium, color: Colors.primary, fontWeight: '700' },
+
+  // Success Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 36,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  modalIcon: { fontSize: 32, color: '#fff', fontWeight: '700' },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: Typography.headingMedium?.fontFamily,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    marginBottom: 8,
+  },
+  modalSub: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+  },
+  modalBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalBtnText: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 0.4 },
 });

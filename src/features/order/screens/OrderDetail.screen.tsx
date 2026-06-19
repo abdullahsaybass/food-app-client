@@ -8,7 +8,7 @@
  *  - Delivery Address card
  *  - Order Items card with "View Details" toggle
  *  - Order Summary card (subtotal / delivery / discount / total + payment method)
- *  - Bottom CTA: Download Invoice (outline) + Reorder (solid dark)
+ *  - Bottom CTA: Download Invoice (outline) + Continue Shopping (solid dark)
  */
 
 import React, {
@@ -39,7 +39,6 @@ import Svg, { Path, Circle, Rect, Polyline, Line } from 'react-native-svg';
 
 import { API }             from '../../../app/lib/api';
 import { orderService }    from '../services/order.service';
-import { useOrderStore }   from '../store/order.store';
 import { Colors, FontFamily, Typography } from '../../../theme';
 import {
   formatOrderDate,
@@ -366,9 +365,6 @@ export const OrderDetailScreen: React.FC = () => {
   const [showItems, setShowItems] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [reordering, setReordering] = useState(false);
-
-  const reorderAction = useOrderStore(s => s.reorder);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -414,21 +410,8 @@ export const OrderDetailScreen: React.FC = () => {
     Linking.openURL('mailto:support@vfresh.com?subject=Order%20Support%20-%20' + shortOrderId(order?.id ?? ''));
   };
 
-  const handleReorder = async () => {
-    if (!order) return;
-    try {
-      setReordering(true);
-      const success = await reorderAction(order.id);
-      if (success) {
-        Alert.alert('Added to Cart', 'Items from this order have been added to your cart.', [
-          { text: 'OK' },
-        ]);
-      } else {
-        Alert.alert('Error', 'Failed to reorder. Please try again.');
-      }
-    } finally {
-      setReordering(false);
-    }
+  const handleContinueShopping = () => {
+    navigation.navigate('MainTabs', { screen: 'Home' });
   };
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -611,11 +594,9 @@ export const OrderDetailScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={s.reorderBtn} onPress={handleReorder} disabled={reordering} activeOpacity={0.85}>
-          {reordering
-            ? <ActivityIndicator size="small" color="#fff" />
-            : <IcoRefresh />}
-          <Text style={s.reorderBtnTxt}>{reordering ? 'Adding…' : 'Reorder'}</Text>
+        <TouchableOpacity style={s.reorderBtn} onPress={handleContinueShopping} activeOpacity={0.85}>
+          <IcoRefresh />
+          <Text style={s.reorderBtnTxt}>Continue Shopping</Text>
         </TouchableOpacity>
       </View>
 

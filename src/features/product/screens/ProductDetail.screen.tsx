@@ -347,10 +347,13 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const addToCart  = useProductStore(s => s.addToCart);
   const cartCount  = useProductStore(s => s.cartCount);
 
+  const [justAdded, setJustAdded] = useState(false);
+
   const handleAddToCart = () => {
     if (!product || !product.inStock || !selectedVariant) return;
     addToCart(product, selectedVariant, quantity);
-    navigation.navigate('MainTabs', { screen: 'Cart' });
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1200);
   };
 
   useEffect(() => {
@@ -650,18 +653,19 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
           style={[
             s.addToCartBtn,
             !product.inStock && s.btnOutOfStock,
+            justAdded && s.btnAddedToCart,
           ]}
           onPress={handleAddToCart}
           activeOpacity={0.88}
           disabled={!product.inStock}
         >
           <MaterialCommunityIcons
-            name="cart-outline"
+            name={justAdded ? 'check-circle' : 'cart-outline'}
             size={20}
             color="#fff"
           />
           <Text style={s.addToCartText}>
-            {!product.inStock ? 'Out of Stock' : 'Add to Cart'}
+            {!product.inStock ? 'Out of Stock' : justAdded ? 'Added!' : 'Add to Cart'}
           </Text>
           <View style={s.btnPriceDivider} />
           <Text style={s.btnPriceText}>{formatMVR(totalPrice)}</Text>

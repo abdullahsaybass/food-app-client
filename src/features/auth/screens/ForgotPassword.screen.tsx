@@ -8,9 +8,9 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../../../theme';
 import { forgotPasswordApi } from '../../auth/api/auth.api';
-import type { ProfileStackParamList } from '../../../app/navigation/navigation.types';
+import type { RootStackParamList } from '../../../app/navigation/navigation.types';
 
-type Props = NativeStackScreenProps<ProfileStackParamList, 'ForgotPassword'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const IconArrowLeft = ({ color = '#333', size = 22 }) => (

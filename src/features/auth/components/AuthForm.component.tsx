@@ -29,7 +29,6 @@ export const AuthField: React.FC<AuthFieldProps> = ({
   ...inputProps
 }) => {
   const [focused, setFocused] = useState(false);
-  const [hidden, setHidden] = useState(true);
   return (
     <View style={[styles.fieldContainer, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
@@ -41,20 +40,11 @@ export const AuthField: React.FC<AuthFieldProps> = ({
           !!error && styles.inputWrapperError,
         ]}
       >
-        {/* <TextInput
+        <TextInput
           style={styles.input}
           placeholderTextColor={Colors.textDisabled}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          importantForAutofill="no"
-          {...inputProps}
-        /> */}
-
-        <TextInput
-          style={styles.input}
-          secureTextEntry={true}
-          autoCorrect={false}
-          autoCapitalize="none"
           importantForAutofill="no"
           {...inputProps}
         />
@@ -79,7 +69,7 @@ export const PasswordField: React.FC<PasswordFieldProps> = (props) => {
       secureTextEntry={!visible}
       autoCorrect={false}
       autoCapitalize="none"
-      // ← remove keyboardType entirely
+      textContentType="oneTimeCode"
       rightElement={
         <TouchableOpacity
           onPress={() => setVisible((v) => !v)}

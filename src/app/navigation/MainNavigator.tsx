@@ -165,7 +165,8 @@ const SlidingTabContainer: React.FC<{
 // ─── Main Navigator ───────────────────────────────────────────────────────────
 
 const MainNavigator: React.FC = () => {
-  const cartCount = useProductStore(s => s.cartCount);
+  const cartItems = useProductStore(s => s.cartItems);
+  const cartCount = cartItems.length;
   const insets    = useSafeAreaInsets();
 
   const [activeIndex, setActiveIndex] = useState(0);
