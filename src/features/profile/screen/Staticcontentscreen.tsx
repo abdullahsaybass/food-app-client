@@ -125,7 +125,7 @@ privacy: {
   sections: [
     {
       heading: '1. Information We Collect',
-      body: 'We collect information you provide directly to us, such as your name, phone number, email address, delivery address and payment information.',
+      body: 'We collect information you provide directly to us, such as your name, phone number, email address, delivery address (including island/atoll), and payment information.',
     },
     {
       heading: '2. How We Use Your Information',
@@ -133,7 +133,7 @@ privacy: {
     },
     {
       heading: '3. Information Sharing',
-      body: 'We do not sell your personal information. We may share your information with trusted service providers only to deliver our services.',
+      body: 'We do not sell your personal information. We may share your information with trusted service providers, such as delivery partners, only to deliver our services.',
     },
     {
       heading: '4. Data Security',
@@ -149,7 +149,11 @@ privacy: {
     },
     {
       heading: '7. Changes to This Policy',
-      body: 'We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated effective date.',
+      body: 'We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated effective date. Effective date: 2026.',
+    },
+    {
+      heading: '8. Contact Us',
+      body: 'If you have any questions about this Privacy Policy, contact us at vvfresh643@gmail.com or +960 942-7902.',
     },
   ],
 },
@@ -160,7 +164,7 @@ terms: {
   sections: [
     {
       heading: 'Acceptance of Terms',
-      body: 'By accessing or using our app, you agree to be bound by these Terms & Conditions and our Privacy Policy. If you do not agree with any part of these terms, you may not use our services.',
+      body: 'By accessing or using our app, you agree to be bound by these Terms & Conditions and our Privacy Policy. If you do not agree with any part of these terms, you may not use our services. Effective date: 2026.',
     },
     {
       heading: 'Use of Our Services',
@@ -168,11 +172,15 @@ terms: {
     },
     {
       heading: 'Orders & Payments',
-      body: 'All orders are subject to availability. We reserve the right to refuse or cancel any order. Prices are subject to change without notice. Payment must be made at the time of placing an order through the available payment methods.',
+      body: 'All orders are subject to availability. We reserve the right to refuse or cancel any order. Prices are subject to change without notice. Payment must be made at the time of placing an order through the available payment methods, including Cash on Delivery where offered.',
     },
     {
       heading: 'Delivery',
-      body: 'We will make reasonable efforts to deliver your order within the estimated time. Delivery times may vary based on location and availability. We are not responsible for delays caused by circumstances beyond our control.',
+      body: 'We deliver to selected islands and atolls within the Maldives. We will make reasonable efforts to deliver your order within the estimated time. Delivery times may vary based on location, weather, sea/ferry conditions, and availability. We are not responsible for delays caused by circumstances beyond our control.',
+    },
+    {
+      heading: 'Frozen & Perishable Items',
+      body: 'Frozen, chilled, and fresh items (including fish, meat, vegetables, and fruits) are packed to maintain quality during transit. Customers must be available to receive these items promptly upon delivery to avoid spoilage.',
     },
     {
       heading: 'Returns & Refunds',
@@ -185,6 +193,10 @@ terms: {
     {
       heading: 'Changes to Terms',
       body: 'We may update these Terms & Conditions from time to time. Any changes will be posted on this page with an updated effective date.',
+    },
+    {
+      heading: 'Contact Us',
+      body: 'For questions about these Terms & Conditions, contact us at vvfresh643@gmail.com or +960 942-7902.',
     },
   ],
 },
@@ -219,11 +231,11 @@ help: {
     },
     {
       heading: 'Support Availability',
-      body: 'Customer support services are available during operational hours to provide timely responses and assistance for customer concerns and service requests.',
+      body: 'Customer support is available every day from 8:00 AM to 10:00 PM, including weekends and public holidays, to provide timely responses and assistance for customer concerns and service requests.',
     },
     {
       heading: 'Contact Information',
-      body: 'Email: support@store.mv\nPhone: +960 700-0000\nLocation: Maldives',
+      body: 'Email: vvfresh643@gmail.com\nPhone / WhatsApp: +960 942-7902\nLocation: Maldives',
     },
   ],
 },
@@ -242,11 +254,15 @@ faq: {
     },
     {
       q: 'Which islands do you deliver to?',
-      a: 'We currently deliver to selected islands. Please check the delivery coverage section in the app to confirm whether your location is supported.',
+      a: 'We currently deliver to selected islands and atolls. Please check the delivery coverage section in the app to confirm whether your island is supported.',
+    },
+    {
+      q: 'Do you deliver fresh fish and produce?',
+      a: 'Yes, we deliver fresh fish, vegetables, and fruits sourced daily where possible. Availability may vary by season and supply.',
     },
     {
       q: 'Do you deliver frozen products?',
-      a: 'Yes, we deliver frozen products. All frozen items are handled with care to maintain quality during transit.',
+      a: 'Yes, we deliver frozen products including meat, seafood, and ready-to-cook items. All frozen items are handled with care to maintain quality during transit.',
     },
     {
       q: 'How is frozen food kept cold during delivery?',
@@ -270,7 +286,11 @@ faq: {
     },
     {
       q: 'How can I contact support?',
-      a: 'You can reach our support team via Call, WhatsApp, or Email through the Help & Support section in the app.',
+      a: 'You can reach our support team via Call or WhatsApp at +960 942-7902, or Email at vvfresh643@gmail.com. You can also use the Help & Support section in the app.',
+    },
+    {
+      q: 'Where can I read your policies?',
+      a: 'Our latest Terms of Service and Privacy Policy (effective 2026) are available in the Settings section of the app.',
     },
   ],
 },
@@ -582,7 +602,7 @@ const AboutScreen: React.FC = () => {
           <Text style={aboutStyles.contactTitle}>Get in Touch</Text>
           {[
             { Icon: AboutIconPhone, text: '+960 942-7902' },
-            { Icon: AboutIconMail,  text: 'ksaybas@gmail.com' },
+            { Icon: AboutIconMail,  text: 'vvfresh643@gmail.com' },
             { Icon: AboutIconPin,   text: 'Maldives' },
             { Icon: AboutIconClock, text: "We're available 8 AM – 10 PM" },
           ].map(({ Icon, text }, i) => (

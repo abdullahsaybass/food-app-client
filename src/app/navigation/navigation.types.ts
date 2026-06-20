@@ -56,6 +56,7 @@ export type RootStackParamList = {
     paymentMethod?: string;
   };
   OrderDetail: { orderId: string };
+  Invoice:     { orderId: string };
 
   // ── Profile flow ───────────────────────────────────────────────
   ProfileHome:    undefined;

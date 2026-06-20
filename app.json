@@ -25,7 +25,9 @@
       "versionCode": 1,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -37,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/vfresh.png",
           "imageWidth": 150,
           "resizeMode": "contain",
           "backgroundColor": "#1A1F2E",
@@ -52,6 +54,15 @@
         {
           "locationWhenInUsePermission": "Allow VFresh to use your location for delivery."
         }
+      ],
+      "expo-web-browser",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow VFresh to save invoices to your device.",
+          "saveToPhotosPermission": "Allow VFresh to save invoices to your device.",
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ],
     "experiments": {
@@ -62,7 +73,9 @@
       "router": {},
       "eas": {
         "projectId": "3251de69-6545-4867-be66-3cd08922d0ce"
-      }
+      },
+      "googleAndroidClientId": "577480848489-clbuj99051f0tkcq507c33ptj2b8dg57.apps.googleusercontent.com",
+      "googleWebClientId": "577480848489-b7b8f70vlj9qrf12pseibpeqa2p80o71.apps.googleusercontent.com"
     }
   }
 }

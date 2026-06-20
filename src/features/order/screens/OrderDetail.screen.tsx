@@ -406,6 +406,11 @@ export const OrderDetailScreen: React.FC = () => {
     }
   };
 
+  const handleDownloadInvoice = () => {
+    if (!order) return;
+    navigation.navigate('Invoice', { orderId: order.id });
+  };
+
   const handleContactSupport = () => {
     Linking.openURL('mailto:support@vfresh.com?subject=Order%20Support%20-%20' + shortOrderId(order?.id ?? ''));
   };
@@ -592,6 +597,21 @@ export const OrderDetailScreen: React.FC = () => {
             <Text style={[s.invoiceBtnTxt, { color: '#EF4444' }]}>
               {cancelling ? 'Cancelling…' : 'Cancel Order'}
             </Text>
+          </TouchableOpacity>
+        )}
+        {isDelivered && (
+          <TouchableOpacity
+            style={s.invoiceBtn}
+            onPress={handleDownloadInvoice}
+            activeOpacity={0.85}
+          >
+            {/* Download icon */}
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke={GREEN} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+              <Polyline points="7 10 12 15 17 10" stroke={GREEN} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+              <Line x1={12} y1={15} x2={12} y2={3} stroke={GREEN} strokeWidth={2} strokeLinecap="round"/>
+            </Svg>
+            <Text style={[s.invoiceBtnTxt, { color: GREEN }]}>Download Invoice</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={s.reorderBtn} onPress={handleContinueShopping} activeOpacity={0.85}>

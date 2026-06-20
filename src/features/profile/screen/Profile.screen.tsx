@@ -178,8 +178,8 @@ const GuestProfile: React.FC<{ rootNav: NavigationProp<RootStackParamList> }> = 
         <View style={g.avatarCircle}>
           <IconUserGuest />
         </View>
-        <Text style={g.heroTitle}>Welcome to FreshMart</Text>
-        <Text style={g.heroSub}>Sign in to track orders, manage addresses, and enjoy a personalised experience.</Text>
+        <Text style={g.heroTitle}>Welcome to VFresh</Text>
+        <Text style={g.heroSub}>Sign in to track orders, manage addresses, and enjoy a fresh grocery shopping experience</Text>
 
         <TouchableOpacity
           style={g.signInBtn}

@@ -27,6 +27,7 @@ import { ChooseLocationScreen } from '../../features/profile/screen/ChooseLocati
 import { OrderSuccessScreen }   from '../../features/order/screens/OrderSuccess.screen';
 import { OrderDetailScreen }    from '../../features/order/screens/OrderDetail.screen';
 import { OrderHistoryScreen }   from '../../features/order/screens/OrderHistory.screen';
+import { InvoiceScreen }        from '../../features/order/screens/Invoice.screen';
 
 // ── Profile flow ──────────────────────────────────────────────────────────────
 import { EditProfileScreen }    from '../../features/profile/screen/EditProfile.screen';
@@ -100,6 +101,8 @@ export const AppNavigator: React.FC = () => (
     <Root.Screen name="OrderDetail"    component={OrderDetailScreen}
       options={{ ...slideRight }} />
     <Root.Screen name="OrderHistory"   component={OrderHistoryScreen}
+      options={{ ...slideRight }} />
+    <Root.Screen name="Invoice"        component={InvoiceScreen}
       options={{ ...slideRight }} />
 
     {/* ── Profile flow ──────────────────────────────────────────── */}
