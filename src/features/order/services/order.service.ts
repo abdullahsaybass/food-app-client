@@ -70,9 +70,13 @@ interface BackendOrder {
   paymentMethod?:       string;
   paymentStatus?:       string;
   items:                BackendOrderItem[];
-  subtotal?:            number;
-  shippingFee?:         number;
-  discount?:            number;
+  itemsTotal?:          number;
+  deliveryCharge?:      number;
+  couponCode?:          string | null;
+  discountAmount?:      number;
+  subtotal?:            number;   // legacy fallback
+  shippingFee?:         number;   // legacy fallback
+  discount?:            number;   // legacy fallback
   totalAmount?:         number;
   shippingAddress?:     BackendShippingAddress;
   statusTimeline?:      BackendTimelineEntry[];
@@ -130,9 +134,14 @@ const toOrder = (raw: BackendOrder): Order => {
     paymentMethod:       raw.paymentMethod ?? 'cod',
     paymentStatus:       raw.paymentStatus ?? 'pending',
     items:               (raw.items ?? []).map(toOrderItem),
-    subtotal:            raw.subtotal ?? raw.totalAmount ?? 0,
-    shippingFee:         raw.shippingFee ?? 0,
-    discount:            raw.discount ?? 0,
+    itemsTotal:          raw.itemsTotal ?? raw.subtotal ?? 0,
+    deliveryCharge:      raw.deliveryCharge ?? raw.shippingFee ?? 0,
+    couponCode:          raw.couponCode ?? null,
+    discountAmount:      raw.discountAmount ?? raw.discount ?? 0,
+    // legacy aliases kept for backward compat
+    subtotal:            raw.itemsTotal ?? raw.subtotal ?? raw.totalAmount ?? 0,
+    shippingFee:         raw.deliveryCharge ?? raw.shippingFee ?? 0,
+    discount:            raw.discountAmount ?? raw.discount ?? 0,
     totalAmount:         raw.totalAmount ?? 0,
     shippingAddress: {   // field is "shippingAddress", NOT "deliveryAddress"
       fullName:      addr.fullName      ?? '',

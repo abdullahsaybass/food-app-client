@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Dimensions, Image,
+  View, Text, StyleSheet, TouchableOpacity, Dimensions, Image, Alert,
 } from 'react-native';
 
 import { useProductStore } from '../store/product.store';
@@ -37,12 +37,20 @@ function useCartActions(product: Product) {
   const handleAdd = useCallback((e: any) => {
     e.stopPropagation();
     if (!displayVariant) return;
+    if (displayVariant.quantity <= 0) {
+      Alert.alert('Out of stock', 'This item is currently unavailable.');
+      return;
+    }
     addToCart(product, displayVariant);
   }, [product, displayVariant, addToCart]);
 
   const handleIncrease = useCallback((e: any) => {
     e.stopPropagation();
     if (!displayVariant) return;
+    if (quantity >= displayVariant.quantity) {
+      Alert.alert('Stock limit reached', `Only ${displayVariant.quantity} left in stock.`);
+      return;
+    }
     updateQuantity(product.id, displayVariant.unit, quantity + 1);
   }, [product, displayVariant, quantity, updateQuantity]);
 
@@ -236,15 +244,17 @@ const s = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: '#2E7D32',
-    overflow: 'hidden',
     height: 28,
+    backgroundColor: '#fff',
   },
   minusBtn: {
     flex: 1,
-    height: 28,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E8F5E9',
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 4,
   },
   minusText: {
     fontSize: 16,
@@ -254,7 +264,7 @@ const s = StyleSheet.create({
   },
   stepCount: {
     flex: 1,
-    height: 28,
+    height: '100%',
     textAlign: 'center',
     textAlignVertical: 'center',
     lineHeight: 28,
@@ -265,10 +275,12 @@ const s = StyleSheet.create({
   },
   plusBtn: {
     flex: 1,
-    height: 28,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#2E7D32',
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
   },
   plusText: {
     fontSize: 16,
@@ -362,15 +374,17 @@ const h = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#2E7D32',
-    overflow: 'hidden',
     height: 34,
+    backgroundColor: '#fff',
   },
   minusBtn: {
     flex: 1,
-    height: 34,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#E8F5E9',
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 6,
   },
   minusText: {
     fontSize: 18,
@@ -380,7 +394,7 @@ const h = StyleSheet.create({
   },
   stepCount: {
     flex: 1,
-    height: 34,
+    height: '100%',
     textAlign: 'center',
     textAlignVertical: 'center',
     lineHeight: 34,
@@ -391,10 +405,12 @@ const h = StyleSheet.create({
   },
   plusBtn: {
     flex: 1,
-    height: 34,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#2E7D32',
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
   },
   plusText: {
     fontSize: 18,

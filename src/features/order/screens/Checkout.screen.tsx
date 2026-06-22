@@ -240,10 +240,11 @@ export const CheckoutScreen: React.FC = () => {
       return;
     }
 
-    const order = await placeOrder({ items, shippingAddress });
+    const order = await placeOrder({ items, shippingAddress, couponCode: couponCode ?? undefined });
 
     if (order) {
       setPendingAddress(null);
+      removeCoupon();
       const cartTotalSnapshot = cartTotal;
       await clearCart();
       navigation.replace('OrderSuccess', {
@@ -311,7 +312,7 @@ export const CheckoutScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {placeError ? (
+          {placeError && !placeError.toLowerCase().includes('minimum') ? (
             <View style={s.errorBanner}>
               <AlertTriangle size={13} color="#B91C1C" strokeWidth={2} style={{ marginRight: 6 }} />
               <Text style={s.errorText}>{placeError}</Text>
@@ -450,6 +451,14 @@ export const CheckoutScreen: React.FC = () => {
                 <Text style={s.couponErrorText}>{couponError}</Text>
               </View>
             ) : null}
+
+            {/* Minimum order warning — shown when coupon is applied but order total is too low */}
+            {couponCode && placeError && placeError.toLowerCase().includes('minimum') ? (
+              <View style={s.couponMinWarnRow}>
+                <AlertTriangle size={12} color="#92400E" strokeWidth={2} />
+                <Text style={s.couponMinWarnText}>{placeError}</Text>
+              </View>
+            ) : null}
           </Card>
 
           {/* ── 4. Payment Method ── */}
@@ -584,6 +593,8 @@ const s = StyleSheet.create({
   couponAppliedSub:       { fontFamily: FontFamily.regular, fontSize: 12, color: PRIMARY_DARK, marginTop: 1 },
   couponErrorRow:         { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 14, marginBottom: 12, padding: 10, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 0.5, borderColor: '#FECACA' },
   couponErrorText:        { fontFamily: FontFamily.regular, fontSize: 12, color: '#B91C1C', flex: 1 },
+  couponMinWarnRow:       { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 14, marginBottom: 12, padding: 10, backgroundColor: '#FFFBEB', borderRadius: 8, borderWidth: 0.5, borderColor: '#FCD34D' },
+  couponMinWarnText:      { fontFamily: FontFamily.regular, fontSize: 12, color: '#92400E', flex: 1 },
 
   priceRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   priceLabel:    { fontFamily: FontFamily.regular, fontSize: 13, color: TEXT2 },

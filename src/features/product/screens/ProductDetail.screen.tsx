@@ -12,6 +12,7 @@ import {
   TextInput,
   FlatList,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -619,7 +620,13 @@ export const ProductDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                   <Text style={s.qtyVal}>{quantity}</Text>
                   <TouchableOpacity
                     style={s.qtyBtn}
-                    onPress={() => setQuantity(q => q + 1)}
+                    onPress={() => {
+                      if (quantity >= selectedVariant.quantity) {
+                        Alert.alert('Stock limit reached', `Only ${selectedVariant.quantity} left in stock.`);
+                        return;
+                      }
+                      setQuantity(q => q + 1);
+                    }}
                   >
                     <MaterialIcons name="add" size={16} color={Colors.grey700} />
                   </TouchableOpacity>

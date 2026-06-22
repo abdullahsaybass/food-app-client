@@ -94,12 +94,15 @@ export interface Order {
   paymentMethod:       string;     // always "cod"
   paymentStatus:       string;     // "pending" | "paid" | "refunded"
   items:               OrderItem[];
+  itemsTotal:          number;   // sum of item prices before discount
+  deliveryCharge:      number;   // delivery zone charge
+  couponCode:          string | null;  // applied coupon code
+  discountAmount:      number;   // MVR deducted by coupon
+  totalAmount:         number;   // itemsTotal + deliveryCharge - discountAmount
+  // legacy aliases
   subtotal:            number;
   shippingFee:         number;
   discount:            number;
-  totalAmount:         number;
-  deliveryCharge:      number;   // from backend delivery zone
-  itemsTotal:          number;   // totalAmount - deliveryCharge
   shippingAddress:     DeliveryAddress;   // field is "shippingAddress", NOT "deliveryAddress"
   statusTimeline:      StatusTimelineEntry[];
   estimatedDeliveryAt: string | null;
@@ -134,4 +137,5 @@ export interface PlaceOrderPayload {
   }[];
   shippingAddress?: DeliveryAddress;
   addressId?:       string;
+  couponCode?:      string | null;  // applied coupon code — sent to backend
 }

@@ -55,16 +55,17 @@ interface InvoiceItem {
 }
 
 interface InvoiceData {
-  id: string;
-  orderNumber: string;
+  id:            string;
+  invoiceNumber: string;   // e.g. "INV-2026001" — already formatted by backend
+  orderNumber:   string;   // e.g. "FSH-0001"
   paymentMethod: string;
   paymentStatus: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  discount: number;
-  deliveryFee: number;
-  totalAmount: number;
-  couponCode?: string;
+  items:         InvoiceItem[];
+  subtotal:      number;   // itemsTotal (pre-discount item sum)
+  discount:      number;   // discount.amount
+  deliveryFee:   number;
+  totalAmount:   number;
+  couponCode?:   string;
   shippingAddress: {
     fullName: string; phone: string;
     street: string; city: string; state?: string; zip?: string;
@@ -73,42 +74,49 @@ interface InvoiceData {
 }
 
 // ─── Backend mapper ───────────────────────────────────────────────────────────
-const mapInvoice = (raw: any): InvoiceData => ({
-  id:            raw._id ?? raw.id ?? '',
-  orderNumber:   raw.orderNumber ?? '',
-  paymentMethod: raw.paymentMethod ?? 'Cash on Delivery',
-  paymentStatus: raw.paymentStatus ?? 'pending',
-  items: (raw.items ?? []).map((i: any) => ({
-    product: {
-      id:    i.product?._id ?? i.product?.id ?? '',
-      name:  i.product?.name ?? i.name ?? '',
-      image: (() => { const img = i.product?.image ?? i.image; if (!img) return ''; if (typeof img === 'string') return img; return img.url ?? img.uri ?? ''; })(),
-      sku:   i.product?.sku ?? i.sku ?? '',
+const mapInvoice = (raw: any): InvoiceData => {
+  // Backend invoice mapper field names:
+  //   invoiceNumber, billingAddress, itemsTotal, deliveryCharge,
+  //   discount: { code, amount }, totalAmount, order: { orderNumber }
+  const addr = raw.billingAddress ?? raw.shippingAddress ?? {};
+  return {
+    id:            raw._id ?? raw.id ?? '',
+    invoiceNumber: raw.invoiceNumber ?? '',          // "INV-0001" — already formatted
+    orderNumber:   raw.order?.orderNumber ?? '',     // "FSH-0001" — from populated order
+    paymentMethod: raw.paymentMethod ?? 'cod',
+    paymentStatus: raw.paymentStatus ?? 'pending',
+    items: (raw.items ?? []).map((i: any) => ({
+      product: {
+        id:    i.product?._id ?? i.product?.id ?? '',
+        name:  i.product?.name ?? i.name ?? '',
+        image: (() => { const img = i.image ?? i.product?.image; if (!img) return ''; if (typeof img === 'string') return img; return (img as any).url ?? (img as any).uri ?? ''; })(),
+        sku:   i.sku ?? i.product?.sku ?? '',
+      },
+      unit:     i.unit ?? '',
+      quantity: i.quantity ?? 1,
+      price:    i.price ?? 0,
+    })),
+    subtotal:    raw.itemsTotal ?? raw.subtotal ?? 0,                     // itemsTotal = pre-discount item sum
+    discount:    raw.discount?.amount ?? raw.discountAmount ?? raw.discount ?? 0,  // discount.amount
+    deliveryFee: raw.deliveryCharge ?? raw.deliveryFee ?? 0,
+    totalAmount: raw.totalAmount ?? 0,
+    couponCode:  raw.discount?.code ?? raw.couponCode ?? undefined,       // discount.code
+    shippingAddress: {
+      fullName: addr.fullName ?? '',
+      phone:    addr.phone    ?? '',
+      street:   addr.street   ?? '',
+      city:     addr.city     ?? '',
+      state:    addr.state,
+      zip:      addr.zip      ?? '',
     },
-    unit:     i.unit ?? '',
-    quantity: i.quantity ?? 1,
-    price:    i.price ?? 0,
-  })),
-  subtotal:    raw.subtotal ?? raw.totalAmount ?? 0,
-  discount:    raw.discount ?? 0,
-  deliveryFee: raw.deliveryCharge ?? raw.deliveryFee ?? raw.shippingFee ?? 0,
-  totalAmount: raw.totalAmount ?? 0,
-  couponCode:  raw.couponCode ?? raw.coupon?.code ?? undefined,
-  shippingAddress: {
-    fullName: raw.shippingAddress?.fullName ?? '',
-    phone:    raw.shippingAddress?.phone ?? '',
-    street:   raw.shippingAddress?.street ?? '',
-    city:     raw.shippingAddress?.city ?? '',
-    state:    raw.shippingAddress?.state,
-    zip:      raw.shippingAddress?.zip ?? '',
-  },
-  createdAt: raw.createdAt ?? '',
-});
+    createdAt: raw.issuedAt ?? raw.createdAt ?? '',
+  };
+};
 
 // ─── PDF HTML builder ─────────────────────────────────────────────────────────
 const buildInvoiceHTML = (inv: InvoiceData): string => {
-  const invNum     = `#INV-${shortOrderId(inv.id)}`;
-  const ordNum     = `#ORD-${shortOrderId(inv.id)}`;
+  const invNum     = inv.invoiceNumber ? `#${inv.invoiceNumber}` : `#INV-${shortOrderId(inv.id)}`;
+  const ordNum     = inv.orderNumber   ? `#${inv.orderNumber}`   : `#ORD-${shortOrderId(inv.id)}`;
   const addr       = inv.shippingAddress;
   const addrFull   = [addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
   const subtotal   = inv.subtotal > 0 ? inv.subtotal : inv.items.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -539,8 +547,8 @@ export const InvoiceScreen: React.FC = () => {
   const fetchInvoice = useCallback(async () => {
     try {
       setLoading(true); setError(null);
-      const { data } = await API.get(`/orders/${orderId}`);
-      const raw = data.data?.order ?? data.data;
+      const { data } = await API.get(`/invoices/order/${orderId}`);
+      const raw = data.data ?? data;
       setInvoice(mapInvoice(raw));
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load invoice');
@@ -560,7 +568,7 @@ export const InvoiceScreen: React.FC = () => {
       // 1. Generate PDF — expo-print writes to a temp cache file
       const html = buildInvoiceHTML(invoice);
       const { uri: pdfUri } = await Print.printToFileAsync({ html, base64: false });
-      const fileName = `Invoice-INV-${shortOrderId(invoice.id)}.pdf`;
+      const fileName = `Invoice-${invoice.invoiceNumber || shortOrderId(invoice.id)}.pdf`;
 
       if (Platform.OS === 'android') {
         // Try to reuse a previously granted folder (no picker shown again)
@@ -615,7 +623,7 @@ export const InvoiceScreen: React.FC = () => {
         const { shareAsync } = await import('expo-sharing');
         await shareAsync(pdfUri, {
           mimeType: 'application/pdf',
-          dialogTitle: `Invoice #INV-${shortOrderId(invoice.id)}`,
+          dialogTitle: `Invoice #${invoice.invoiceNumber || shortOrderId(invoice.id)}`,
           UTI: 'com.adobe.pdf',
         });
       }
@@ -638,7 +646,7 @@ export const InvoiceScreen: React.FC = () => {
       const { shareAsync } = await import('expo-sharing');
       await shareAsync(uri, {
         mimeType: 'application/pdf',
-        dialogTitle: `Invoice #INV-${shortOrderId(invoice.id)}`,
+        dialogTitle: `Invoice #${invoice.invoiceNumber || shortOrderId(invoice.id)}`,
         UTI: 'com.adobe.pdf',
       });
     } catch {} finally {
@@ -685,8 +693,8 @@ export const InvoiceScreen: React.FC = () => {
   );
 
   // ── Derived values ───────────────────────────────────────────────────────
-  const invNumber   = `#INV-${shortOrderId(invoice.id)}`;
-  const ordNumber   = `#ORD-${shortOrderId(invoice.id)}`;
+  const invNumber   = invoice.invoiceNumber ? `#${invoice.invoiceNumber}` : `#INV-${shortOrderId(invoice.id)}`;
+  const ordNumber   = invoice.orderNumber   ? `#${invoice.orderNumber}`   : `#ORD-${shortOrderId(invoice.id)}`;
   const isPaid      = invoice.paymentStatus === 'paid' || invoice.paymentMethod?.toLowerCase().includes('online');
   const addr        = invoice.shippingAddress;
   const addrLine1   = addr.street;

@@ -1,7 +1,7 @@
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // product/screens/Cart.screen.tsx
 import React, { useCallback, useEffect, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { BackHandler, Alert } from 'react-native';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, ActivityIndicator, Animated, ScrollView,
@@ -217,8 +217,21 @@ export const CartScreen: React.FC = () => {
     const discountedPrice = getVariantDiscountedPrice(selectedVariant, product.discountPercentage);
     const lineTotal  = discountedPrice * quantity;
     const perKgPrice = selectedVariant.weight ? discountedPrice / selectedVariant.weight : null;
-    const increase   = () => updateQty(product.id, selectedVariant.unit, quantity + 1);
-    const decrease   = () => updateQty(product.id, selectedVariant.unit, quantity - 1);
+    const itemKey    = `${product.id}::${selectedVariant.unit}`;
+    const atMaxStock = quantity >= selectedVariant.quantity;
+
+    const increase = () => {
+      if (atMaxStock) {
+        Alert.alert('Stock limit reached', `Only ${selectedVariant.quantity} ${selectedVariant.unit} in stock.`);
+        return;
+      }
+      updateQty(product.id, selectedVariant.unit, quantity + 1);
+    };
+
+    const decrease = () => {
+      if (quantity <= 1) return;
+      updateQty(product.id, selectedVariant.unit, quantity - 1);
+    };
 
     return (
       <View style={s.card}>
@@ -260,8 +273,13 @@ export const CartScreen: React.FC = () => {
                     <Text style={[s.stepMinusText, quantity === 1 && s.stepMinusTextDisabled]}>−</Text>
                   </TouchableOpacity>
                   <Text style={s.stepCount}>{quantity}</Text>
-                  <TouchableOpacity style={s.stepPlus} onPress={increase} activeOpacity={0.7}>
-                    <Text style={s.stepPlusText}>+</Text>
+                  <TouchableOpacity
+                    style={[s.stepPlus, atMaxStock && s.stepPlusDisabled]}
+                    onPress={increase}
+                    activeOpacity={atMaxStock ? 1 : 0.7}
+                    disabled={atMaxStock}
+                  >
+                    <Text style={[s.stepPlusText, atMaxStock && s.stepPlusTextDisabled]}>+</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -569,7 +587,9 @@ const s = StyleSheet.create({
   stepMinusTextDisabled: { color: '#D0D0D0' },
   stepCount: { width: 30, height: 32, lineHeight: 32, textAlign: 'center', textAlignVertical: 'center', fontFamily: FontFamily.bold, fontSize: 13, color: TEXT1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: BORDER },
   stepPlus:     { width: 30, height: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: PRIMARY_DARK, borderTopRightRadius: 8, borderBottomRightRadius: 8 },
+  stepPlusDisabled:      { backgroundColor: '#D0D0D0' },
   stepPlusText: { fontSize: 18, lineHeight: 24, color: '#fff', fontFamily: FontFamily.regular },
+  stepPlusTextDisabled:  { color: '#F5F5F5' },
   lineTotalBlock: { alignItems: 'flex-end', flexShrink: 0, minWidth: 52 },
   lineTotal:      { fontFamily: FontFamily.bold, fontSize: 13, color: TEXT1 },
   lineEach:       { fontFamily: FontFamily.regular, fontSize: 10, color: TEXT2, marginTop: 2 },

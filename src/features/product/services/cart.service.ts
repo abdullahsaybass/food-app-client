@@ -79,7 +79,7 @@ const toCartItem = (raw: any): CartItem => {
   const selectedVariant: ProductVariant = {
     unit:             raw.unit  ?? 'pcs',
     price:            raw.price ?? 0,
-    quantity:         raw.inStock ? 1 : 0,
+    quantity:         raw.stockQuantity ?? raw.variantQuantity ?? raw.product?.variants?.find((v: any) => v.unit === (raw.unit ?? 'pcs'))?.quantity ?? (raw.inStock ? 99 : 0),
     sku:              raw.sku   ?? '',
     minOrderQuantity: 1,
     bulkPrice:        0,

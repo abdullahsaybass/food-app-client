@@ -38,7 +38,9 @@ function applyServerCart(res: CartResponse): Partial<ProductStore> {
 }
 
 const lineKey = (productId: string, unit: string) => `${productId}::${unit}`;
-const maxQty  = (_variant: ProductVariant) => 99;
+// Cap at whatever stock the variant actually has — was hardcoded to 99,
+// which let people add more than was in stock.
+const maxQty  = (variant: ProductVariant) => Math.max(variant.quantity ?? 0, 0);
 
 const isLoggedIn = () => !!useAuthStore.getState().token;
 
@@ -140,7 +142,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
             ? { ...i, quantity: Math.min(i.quantity + quantity, maxQty(i.selectedVariant)) }
             : i
         )
-      : [...prev, { product, selectedVariant: variant, quantity }];
+      : [...prev, { product, selectedVariant: variant, quantity: Math.min(quantity, maxQty(variant)) }];
 
     set({ cartItems: optimistic, ...deriveCountAndTotal(optimistic) });
 

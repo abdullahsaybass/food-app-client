@@ -76,6 +76,22 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
     set({ isApplyingCoupon: true, couponError: null });
     try {
       const result = await couponApi.apply(code, cartTotal);
+
+      // Some coupon failures (e.g. cart total below the coupon's minimum
+      // purchase requirement) come back as a 200 with discountAmount: 0
+      // rather than an HTTP error — that's not a successful apply, so don't
+      // treat it as one. Surface whatever reason the backend gave instead
+      // of silently "applying" a coupon worth MVR 0.
+      if (!result.discount || result.discount <= 0) {
+        set({
+          isApplyingCoupon: false,
+          couponError:      result.message || 'This coupon isn\u2019t valid for your cart.',
+          couponCode:       null,
+          couponDiscount:   0,
+        });
+        return;
+      }
+
       set({
         isApplyingCoupon: false,
         couponCode:       code.toUpperCase(),
@@ -97,9 +113,13 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
     try {
       const order = await orderService.placeOrder(payload);
       set(s => ({
-        isPlacing:   false,
-        activeOrder: order,
-        orders:      [order, ...s.orders],
+        isPlacing:     false,
+        activeOrder:   order,
+        orders:        [order, ...s.orders],
+        // Reset coupon after order placed
+        couponCode:    null,
+        couponDiscount: 0,
+        couponError:   null,
       }));
       return order;
     } catch (err: any) {
