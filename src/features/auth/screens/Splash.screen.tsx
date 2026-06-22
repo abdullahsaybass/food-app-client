@@ -68,12 +68,7 @@ export const SplashScreen: React.FC = () => {
           <Image source={vfresh} style={styles.logoImage} />
         </Animated.View>
 
-        <Animated.View style={{ opacity: textOpacity, transform: [{ translateY: textY }] }}>
-          <Text style={styles.appName}>Vfresh</Text>
-          <Animated.Text style={[styles.tagline, { opacity: tagOpacity }]}>
-            Fresh Groceries, Delivered Fast
-          </Animated.Text>
-        </Animated.View>
+        
       </View>
 
       <View style={styles.bottomDecor}>
