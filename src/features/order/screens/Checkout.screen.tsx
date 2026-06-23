@@ -185,8 +185,9 @@ export const CheckoutScreen: React.FC = () => {
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [promoInput, setPromoInput]       = useState('');
-  const [deliveryCharge, setDeliveryCharge] = useState(0);
-  const [loadingCharge, setLoadingCharge]   = useState(false);
+
+  // Delivery is always free — no API call needed
+  const deliveryCharge = 0;
 
   const savedAddresses  = (profile as any)?.addresses ?? [];
   const defaultAddress  = savedAddresses.find((a: any) => a.isDefault) ?? savedAddresses[0] ?? null;
@@ -194,22 +195,9 @@ export const CheckoutScreen: React.FC = () => {
 
   const subtotal = cartTotal;
   const discount = couponDiscount;
-  const total    = Math.max(0, subtotal - discount + deliveryCharge);
+  const total    = Math.max(0, subtotal - discount);
 
   useEffect(() => () => { clearErrors(); }, []);
-
-  // Fetch delivery charge whenever selected address changes
-  useEffect(() => {
-    const addr = pendingAddress ?? defaultAddress;
-    if (!addr?.city && !addr?.state) { setDeliveryCharge(0); return; }
-    setLoadingCharge(true);
-    import('../../../app/lib/api').then(({ API }) =>
-      API.post('/delivery-zones/resolve', { city: addr.city || null, atoll: addr.state || null })
-        .then(res => setDeliveryCharge(res.data?.data?.charge ?? 0))
-        .catch(() => setDeliveryCharge(0))
-        .finally(() => setLoadingCharge(false))
-    );
-  }, [pendingAddress, defaultAddress?.city, defaultAddress?.state]);
 
   const goToSelectAddress = () => navigation.navigate('SelectAddress');
 
@@ -231,7 +219,7 @@ export const CheckoutScreen: React.FC = () => {
       street:     selectedAddress.street,
       city:       selectedAddress.city,
       state:      selectedAddress.state      || '',
-      zip: selectedAddress.zip || '',
+      zip:        selectedAddress.zip        || '',
       label:      selectedAddress.label,
     };
 
@@ -319,15 +307,15 @@ export const CheckoutScreen: React.FC = () => {
             </View>
           ) : null}
 
-          {/* ── Estimated Delivery banner ── */}
+          {/* ── Delivery banner ── */}
           <View style={s.deliveryCard}>
             <View style={s.deliveryLeft}>
               <View style={s.deliveryIconWrap}>
                 <Truck size={20} color="#fff" strokeWidth={2} />
               </View>
               <View style={{ flexShrink: 1 }}>
-                <Text style={s.deliveryTitle}>{deliveryCharge > 0 ? `MVR ${deliveryCharge} Delivery` : 'Free Delivery'}</Text>
-                <Text style={s.deliverySub}>{deliveryCharge > 0 ? 'Delivery charge applies to your area' : 'We deliver your order for free'}</Text>
+                <Text style={s.deliveryTitle}>Free Delivery</Text>
+                <Text style={s.deliverySub}>We deliver your order for free</Text>
               </View>
             </View>
             <View style={s.deliveryDivider} />
@@ -452,7 +440,6 @@ export const CheckoutScreen: React.FC = () => {
               </View>
             ) : null}
 
-            {/* Minimum order warning — shown when coupon is applied but order total is too low */}
             {couponCode && placeError && placeError.toLowerCase().includes('minimum') ? (
               <View style={s.couponMinWarnRow}>
                 <AlertTriangle size={12} color="#92400E" strokeWidth={2} />
@@ -482,7 +469,7 @@ export const CheckoutScreen: React.FC = () => {
             />
           </Card>
 
-          {/* ── 5. Order Summary / Billing Details ── */}
+          {/* ── 5. Billing Details ── */}
           <Card style={{ padding: 16, marginBottom: 0 }}>
             <Text style={[s.cardTitle, { marginBottom: 12 }]}>Billing Details</Text>
             <View style={s.priceRow}>
@@ -491,12 +478,7 @@ export const CheckoutScreen: React.FC = () => {
             </View>
             <View style={s.priceRow}>
               <Text style={s.priceLabel}>Delivery Charge</Text>
-              {loadingCharge
-                ? <ActivityIndicator size="small" color={PRIMARY} />
-                : <Text style={deliveryCharge > 0 ? s.priceValue : s.freeText}>
-                    {deliveryCharge > 0 ? formatOrderPrice(deliveryCharge) : 'FREE'}
-                  </Text>
-              }
+              <Text style={s.freeText}>FREE</Text>
             </View>
             <View style={s.priceRow}>
               <Text style={s.priceLabel}>Discount</Text>
@@ -511,13 +493,12 @@ export const CheckoutScreen: React.FC = () => {
 
         </ScrollView>
 
-        {/* ── Sticky Footer — unchanged ── */}
+        {/* ── Sticky Footer ── */}
         <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
           <View style={s.footerMain}>
             <View style={s.footerLeft}>
               <Text style={s.footerTotalLabel}>Total Payable</Text>
               <Text style={s.footerTotalValue}>{formatOrderPrice(total)}</Text>
-              
             </View>
             <TouchableOpacity
               style={[s.checkoutBtn, isPlacing && { opacity: 0.7 }]}
@@ -559,27 +540,26 @@ const s = StyleSheet.create({
   errorBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', padding: 12, borderRadius: 8, borderWidth: 0.5, borderColor: '#FECACA', marginBottom: 10 },
   errorText:   { fontFamily: FontFamily.regular, fontSize: 12, color: '#B91C1C', flex: 1 },
 
-  // ── Estimated Delivery banner (Cart-style) ──────────────────────────────────
-  deliveryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: PRIMARY_DARK, borderRadius: 12, padding: 18, marginBottom: 10 },
-  deliveryLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1.4, minWidth: 0 },
-  deliveryIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
-  deliveryTitle: { fontFamily: FontFamily.bold, fontSize: 15, color: '#FFFFFF' },
-  deliverySub:   { fontFamily: FontFamily.regular, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  deliveryDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.12)', marginHorizontal: 16 },
-  deliveryRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  deliveryCard:      { flexDirection: 'row', alignItems: 'center', backgroundColor: PRIMARY_DARK, borderRadius: 12, padding: 18, marginBottom: 10 },
+  deliveryLeft:      { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1.4, minWidth: 0 },
+  deliveryIconWrap:  { width: 44, height: 44, borderRadius: 22, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' },
+  deliveryTitle:     { fontFamily: FontFamily.bold, fontSize: 15, color: '#FFFFFF' },
+  deliverySub:       { fontFamily: FontFamily.regular, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  deliveryDivider:   { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.12)', marginHorizontal: 16 },
+  deliveryRight:     { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   deliveryClockWrap: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   deliveryMetaLabel: { fontFamily: FontFamily.regular, fontSize: 10, color: 'rgba(255,255,255,0.5)', flexShrink: 1 },
-  deliveryTime: { fontFamily: FontFamily.bold, fontSize: 14, color: PRIMARY, marginVertical: 1 },
+  deliveryTime:      { fontFamily: FontFamily.bold, fontSize: 14, color: PRIMARY, marginVertical: 1 },
 
   cardHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
   cardTitle:      { fontFamily: FontFamily.bold, fontSize: 15, color: TEXT1 },
   editBtn:        { padding: 4 },
   editBtnText:    { fontFamily: FontFamily.semiBold, fontSize: 13, color: PRIMARY },
 
-  addrBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingBottom: 16, paddingTop: 0 },
+  addrBody:    { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingBottom: 16, paddingTop: 0 },
   addrPinWrap: { width: 40, height: 40, borderRadius: 8, backgroundColor: PRIMARY_SURF, alignItems: 'center', justifyContent: 'center' },
-  addrName: { fontFamily: FontFamily.bold, fontSize: 14, color: TEXT1, marginBottom: 3 },
-  addrLine: { fontFamily: FontFamily.regular, fontSize: 13, color: TEXT2, lineHeight: 20 },
+  addrName:    { fontFamily: FontFamily.bold, fontSize: 14, color: TEXT1, marginBottom: 3 },
+  addrLine:    { fontFamily: FontFamily.regular, fontSize: 13, color: TEXT2, lineHeight: 20 },
 
   itemDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 16 },
 
@@ -605,20 +585,14 @@ const s = StyleSheet.create({
   totalLabel:    { fontFamily: FontFamily.bold, fontSize: 15, color: TEXT1 },
   totalValue:    { fontFamily: FontFamily.bold, fontSize: 18, color: TEXT1 },
 
-  // ── Footer (unchanged) ──────────────────────────────────────────────────────
   footer:           { backgroundColor: NAVY, paddingHorizontal: 16, paddingTop: 14, borderTopWidth: 0.5, borderTopColor: BORDER },
   footerMain:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
   footerLeft:       { flexShrink: 1 },
   footerTotalLabel: { fontFamily: FontFamily.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
   footerTotalValue: { fontFamily: FontFamily.bold, fontSize: 22, color: '#FFFFFF', marginTop: 2 },
-  secureSub:        { fontFamily: FontFamily.regular, fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
-  checkoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: GREEN, borderRadius: 12,
-    paddingVertical: 14, paddingHorizontal: 20,
-  },
-  checkoutBtnText: { fontFamily: FontFamily.bold, fontSize: 14, color: '#fff' },
-  termsNote:   { fontFamily: FontFamily.regular, textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 2 },
+  checkoutBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20 },
+  checkoutBtnText:  { fontFamily: FontFamily.bold, fontSize: 14, color: '#fff' },
+  termsNote:        { fontFamily: FontFamily.regular, textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 2 },
 
   guestWall:     { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 14 },
   guestIconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: PRIMARY_SURF, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },

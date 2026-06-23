@@ -15,7 +15,6 @@ import {
   Store, Leaf, Banknote, Sun, Truck,
 } from 'lucide-react-native';
 import { FontFamily } from '../../../theme';
-import { API }        from '../../../app/lib/api';
 import { useProductStore }         from '../store/product.store';
 import { useAuthStore }            from '../../auth/store/auth.store';
 import { productService }          from '../services/product.service';
@@ -93,6 +92,7 @@ export const CartScreen: React.FC = () => {
   const cartItems      = useProductStore(s => s.cartItems);
   const cartLoading    = useProductStore(s => s.cartLoading);
   const cartCount      = useProductStore(s => s.cartCount);
+  const uniqueProductCount = new Set(cartItems.map(i => i.product.id)).size;
   const cartError      = useProductStore(s => s.cartError);
   const updateQty      = useProductStore(s => s.updateQuantity);
   const removeFromCart = useProductStore(s => s.removeFromCart);
@@ -119,38 +119,9 @@ export const CartScreen: React.FC = () => {
   const defaultAddress = userAddresses.find(a => a.isDefault) ?? userAddresses[0] ?? null;
 
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
-  const [deliveryCharge, setDeliveryCharge]       = useState(0);
-  const [loadingCharge, setLoadingCharge]         = useState(false);
-  const [deliveryZoneLabel, setDeliveryZoneLabel] = useState<string | null>(null);
-  // Track zone fetch error — when it fails we just treat delivery as free
-  const [zoneError, setZoneError]                 = useState(false);
 
-  // Fetch delivery charge based on default address city/atoll
-  useEffect(() => {
-    if (!isLoggedIn || (!defaultAddress?.city && !defaultAddress?.state)) {
-      setDeliveryCharge(0);
-      setDeliveryZoneLabel(null);
-      setZoneError(false);
-      return;
-    }
-    setLoadingCharge(true);
-    setZoneError(false);
-    API.post('/delivery-zones/resolve', {
-      city:  defaultAddress.city  || null,
-      atoll: defaultAddress.state || null,
-    })
-      .then(res => {
-        setDeliveryCharge(res.data?.data?.charge ?? 0);
-        setDeliveryZoneLabel(res.data?.data?.name ?? null);
-        setZoneError(false);
-      })
-      .catch(() => {
-        setDeliveryCharge(0);
-        setDeliveryZoneLabel(null);
-        setZoneError(true);
-      })
-      .finally(() => setLoadingCharge(false));
-  }, [isLoggedIn, defaultAddress?.city, defaultAddress?.state]);
+  // Delivery is always free — no API call needed
+  const deliveryCharge = 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -202,7 +173,7 @@ export const CartScreen: React.FC = () => {
             <ShoppingCart size={18} color="#fff" strokeWidth={2} />
             {cartItems.length > 0 && (
               <View style={s.headerCartBadge}>
-                <Text style={s.headerCartBadgeText}>{cartItems.length > 99 ? '99+' : cartItems.length}</Text>
+                <Text style={s.headerCartBadgeText}>{uniqueProductCount > 99 ? '99+' : uniqueProductCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -390,30 +361,12 @@ export const CartScreen: React.FC = () => {
                       <Truck size={20} color="#fff" strokeWidth={2} />
                     </View>
                     <View style={{ flexShrink: 1 }}>
-                      {loadingCharge ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <>
-                          <Text style={s.freeDeliveryTitle}>
-                            {zoneError
-                              ? 'Free Delivery'
-                              : deliveryCharge > 0
-                                ? `MVR ${deliveryCharge} Delivery`
-                                : 'Free Delivery'}
-                          </Text>
-                          <Text style={s.freeDeliverySub}>
-                            {zoneError
-                              ? 'Enjoy free delivery on this order'
-                              : deliveryZoneLabel
-                                ? `Delivering to ${deliveryZoneLabel}`
-                                : deliveryCharge > 0
-                                  ? 'Delivery charge applies to your area'
-                                  : isLoggedIn && defaultAddress
-                                    ? 'We deliver your order for free'
-                                    : 'Login to see delivery charge for your area'}
-                          </Text>
-                        </>
-                      )}
+                      <Text style={s.freeDeliveryTitle}>Free Delivery</Text>
+                      <Text style={s.freeDeliverySub}>
+                        {isLoggedIn && defaultAddress
+                          ? 'We deliver your order for free'
+                          : 'Login to enjoy free delivery'}
+                      </Text>
                     </View>
                   </View>
                   <View style={s.freeDeliveryDivider} />
@@ -460,12 +413,7 @@ export const CartScreen: React.FC = () => {
                   )}
                   <View style={s.billingRow}>
                     <Text style={s.billingLabel}>Delivery Charge</Text>
-                    {loadingCharge
-                      ? <ActivityIndicator size="small" color={PRIMARY} />
-                      : <Text style={[s.billingValue, { color: zoneError || deliveryCharge === 0 ? PRIMARY : '#EF4444' }]}>
-                          {!zoneError && deliveryCharge > 0 ? `MVR ${deliveryCharge}` : 'FREE'}
-                        </Text>
-                    }
+                    <Text style={[s.billingValue, { color: PRIMARY }]}>FREE</Text>
                   </View>
                   <View style={s.billingRow}>
                     <Text style={s.billingLabel}>Platform Fee</Text>

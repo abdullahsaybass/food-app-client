@@ -40,7 +40,7 @@ function applyServerCart(res: CartResponse): Partial<ProductStore> {
 const lineKey = (productId: string, unit: string) => `${productId}::${unit}`;
 // Cap at whatever stock the variant actually has — was hardcoded to 99,
 // which let people add more than was in stock.
-const maxQty  = (variant: ProductVariant) => Math.max(variant.quantity ?? 0, 0);
+const maxQty  = (variant: ProductVariant) => { const q = variant.quantity ?? 0; return q > 0 ? q : 99; };
 
 const isLoggedIn = () => !!useAuthStore.getState().token;
 
@@ -99,6 +99,7 @@ export const useProductStore = create<ProductStore>((set, get) => ({
 
   // ── fetchCart ────────────────────────────────────────────────────────────
   fetchCart: async () => {
+    if (!isLoggedIn()) return; // guest cart lives locally, no API call
     set({ cartLoading: true, cartError: null });
     try {
       const res = await cartService.getCart();

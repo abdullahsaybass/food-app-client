@@ -2,8 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const API = axios.create({
-  baseURL: 'https://api.vfresh.shop/api',
-  timeout: 15000, // FIX: 15s timeout — prevents infinite hangs on poor Maldives connections
+  baseURL: 'http://192.168.0.18:5000/api',
+  timeout: 15000,
 });
 
 // 🔥 FIX: avoid a static/circular import to auth.store (api.ts → auth.store → notification.api/user.api → api.ts).
